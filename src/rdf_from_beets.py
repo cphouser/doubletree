@@ -6,6 +6,7 @@ import urllib.parse as url
 from collections import Hashable
 
 import rdflib as rdf
+from rdflib.collection import Collection
 from rdflib.namespace import RDF, RDFS, OWL, FOAF, DC, PROV, XSD, TIME
 from blake3 import blake3
 from beets.library import Library
@@ -16,7 +17,9 @@ EVENT = rdf.Namespace('http://purl.org/NET/c4dm/event.owl#')
 
 B3 = rdf.Namespace('hash://blake3/')
 LOCAL = rdf.Namespace('PSEUDOCRAFT:')
+XCAT = rdf.Namespace('http://xeroxc.at/schema#')
 
+release_dict = {}
 
 def rdf_match(query, graph, unique=False):
     matching_values = set()
@@ -56,35 +59,12 @@ def rdf_matchorinit(query, graph, node=None):
             triple[blank_idx] = result
             graph.add(triple)
     elif node and isinstance(result, rdf.BNode):
-        print(node.n3(rdf.Graph().namespace_manager))
-        print(result.n3(rdf.Graph().namespace_manager))
-        #print()
-        #for triple in query:
-        #    blank_idx = triple.index(None)
-        #    triple = list(triple)
-        #    triple[blank_idx] = node
-        #    graph.add(triple)
-        #    triple[blank_idx] = result
-        #    graph.remove(tuple(triple))
         for pred, obj in data_g.predicate_objects(result):
-            print([n.n3(rdf.Graph().namespace_manager) for n in (result, pred, obj)])
             graph.remove((result, pred, obj))
             graph.add((node, pred, obj))
-        #for pred, obj in data_g.predicate_objects(result):
-        #    print('s', [n.n3(rdf.Graph().namespace_manager) for n in (result, pred, obj)])
-        #for pred, obj in data_g.predicate_objects(node):
-        #    print('s', [n.n3(rdf.Graph().namespace_manager) for n in (node, pred, obj)])
-        #print()
         for subj, pred in data_g.subject_predicates(result):
-            print([n.n3(rdf.Graph().namespace_manager) for n in (subj, pred, result)])
             graph.remove((subj, pred, result))
             graph.add((subj, pred, node))
-            #graph.add((node, pred, obj))
-        #for subj, pred in data_g.subject_predicates(result):
-        #    print('p', [n.n3(rdf.Graph().namespace_manager) for n in (subj, pred, result)])
-        #for subj, pred in data_g.subject_predicates(node):
-        #    print('p', [n.n3(rdf.Graph().namespace_manager) for n in (subj, pred, node)])
-        #print('\n')
         result = node
     elif (isinstance(result, rdf.URIRef) and isinstance(node, rdf.URIRef)
           and result != node):
@@ -125,51 +105,41 @@ def add_namespaces(*graphs):
         graph.bind('xsd', XSD)
         graph.bind('dc', DC)
         graph.bind('time', TIME)
+        graph.bind('xcat', XCAT)
 
 
 def release_from_beets(data_g, time_g, release_uri, source, _beets):
+    release_dict[release_uri] = []
     data_g.add((release_uri, DC.title, rdf.Literal(_beets['album'])))
     data_g.add((release_uri, RDF.type, MO.Release))
+    albumartist_lbl = rdf.Literal(_beets['albumartist'])
+    label_uri = None
+    albumartist = None
     if source == 'Discogs':
         albumartist = discogs_url('artist', _beets['discogs_artistid'])
         # www.discogs.com/label/1818 is the "Not On Label" placeholder
-        if (label_id := _beets['discogs_labelid']) == 1818:
-            label_uri = None
-        else:
+        if not (label_id := _beets['discogs_labelid']) == 1818:
             label_uri = discogs_url('label', label_id)
-            data_g.add((label_uri, RDF.type, MO.Label))
     elif source == 'bandcamp':
         # url for albumartistid can be artist or label
         # bandcamp parser uniquely always fills label field
-        albumartist_lbl = rdf.Literal(_beets['albumartist'])
         if _beets['label'] == _beets['albumartist']:
-            albumartist = rdf_matchorinit(
-                    ((None, RDF.type, MO.MusicArtist),
-                     (None, FOAF.name, albumartist_lbl)),
-                    data_g, rdf.URIRef(_beets['mb_albumartistid']))
-            label_uri = None
+            albumartist = rdf.URIRef(_beets['mb_albumartistid'])
         else:
-            albumartist = rdf_matchorinit(((None, FOAF.name, albumartist_lbl),
-                                           (None, RDF.type, MO.MusicArtist)),
-                                          data_g)
             label_uri = rdf.URIRef(_beets['mb_albumartistid'])
-            data_g.add((label_uri, RDF.type, MO.Label))
     elif source == 'MusicBrainz':
-        if (albumartist_lbl := _beets['albumartist']):
-            # check if albumartist_lbl == various artists?
+        if albumartist_lbl:
             albumartist = mb_url('artist', _beets['mb_albumartistid'])
         elif (albumartist_credit := _beets['albumartist_credit']):
             albumartist_lbl = rdf.Literal(albumartist_credit)
-            albumartist = rdf_matchorinit(((None, FOAF.name, albumartist_lbl),
-                                           (None, RDF.type, MO.MusicArtist)),
-                                          data_g)
-        label_uri = None
     else:
         print("what source?", source, release_uri)
+
+    albumartist = rdf_matchorinit(((None, RDF.type, MO.MusicArtist),
+                                   (None, FOAF.name, albumartist_lbl)),
+                                  data_g, albumartist)
     data_g.add((release_uri, FOAF.maker, albumartist))
     data_g.add((albumartist, FOAF.made, release_uri))
-
-    #print(albumartist.n3(rdf.Graph().namespace_manager), _beets['albumartist'], '*')
 
     if (year := _beets['year']):
         date = str(year)
@@ -199,25 +169,12 @@ def release_from_beets(data_g, time_g, release_uri, source, _beets):
         data_g.add((release_uri, MO.genre, genre))
 
     if label_uri:
+        data_g.add((label_uri, RDF.type, MO.Label))
+        data_g.add((label_uri, FOAF.name, rdf.Literal(_beets['label'])))
         data_g.add((label_uri, MO.published, release_uri))
         data_g.add((release_uri, MO.publisher, label_uri))
         if cat_num := _beets['catalognum']:
             data_g.add((release_uri, MO.catalogue_number, rdf.Literal(cat_num)))
-
-
-def get_genre_vals(beets_dict):
-    genres = []
-    if (genre := beets_dict.get('genre')):
-        if ',' in genre:
-            genres += [g.strip() for g in genre.split(',')]
-        else:
-            genres += [genre]
-    if (style := beets_dict.get('style')):
-        if ',' in style:
-            genres += [s.strip() for s in style.split(',')]
-        else:
-            genres += [genre]
-    return genres
 
 
 def add_to_graph(data_g, file_g, time_g, beets_lib, data):
@@ -228,7 +185,6 @@ def add_to_graph(data_g, file_g, time_g, beets_lib, data):
     artist_lbl = rdf.Literal(data['artist'])
     rel_lbl = rdf.Literal(data['album'])
     track_num = rdf.Literal(data['track'])
-    genre_vals = get_genre_vals(data)
 
     file_g.add((file_URN, RDF.type, MO.AudioFile))
     file_g.add((file_URN, MO.encoding, rdf.Literal(data['format'])))
@@ -252,21 +208,12 @@ def add_to_graph(data_g, file_g, time_g, beets_lib, data):
         if data['label'] == artist_lbl:
             artist = rdf.URIRef(_beets['mb_artistid'])
         else:
-            artist = None #rdf_matchorinit(((None, FOAF.name, artist_lbl),
-                          #            (None, RDF.type, MO.MusicArtist)),
-                          #           data_g)
+            artist = None
         release = rdf.URIRef(data['mb_albumid'])
         track = rdf.URIRef(data['mb_trackid'])
 
-    #if not tuple(data_g.triples((artist, RDF.type, MO.MusicArtist))):
-    #    data_g.add((artist, RDF.type, MO.MusicArtist))
-    #    data_g.add((artist, FOAF.name, artist_lbl))
-    if artist:
-        print(artist.n3(rdf.Graph().namespace_manager), artist_lbl)
     artist = rdf_matchorinit(((None, RDF.type, MO.MusicArtist),
                               (None, FOAF.name, artist_lbl)), data_g, artist)
-    print(artist.n3(rdf.Graph().namespace_manager), artist_lbl)
-    print('---')
 
     data_g.add((track, RDF.type, MO.Track))
     data_g.add((track, MO.item, file_URN))
@@ -275,7 +222,7 @@ def add_to_graph(data_g, file_g, time_g, beets_lib, data):
     data_g.add((track, FOAF.maker, artist))
     data_g.add((artist, FOAF.made, track))
 
-    for genre_name in genre_vals:
+    for genre_name in get_genre_vals(data):
         genre_lbl = rdf.Literal(genre_name)
         genre = rdf_matchorinit(((None, FOAF.name, genre_lbl),
                                  (None, RDF.type, MO.Genre)), data_g)
@@ -285,12 +232,39 @@ def add_to_graph(data_g, file_g, time_g, beets_lib, data):
         beetz_release = beets_lib.get_album(data['album_id'])
         release_from_beets(data_g, time_g, release, source, beetz_release)
 
+    tracklist = release_dict[release]
+    tracklist += [(data['track'], track)]
+    if len(tracklist) == data['tracktotal']:
+        #add tracklist to release
+        sorted_tracklist = [track[1] for track in sorted(tracklist)]
+        tracklist_node = Collection(data_g, None, sorted_tracklist)._get_container(0)
+        data_g.add((release, XCAT.tracklist, tracklist_node))
+        #print(release)
+        #print(sorted_tracklist)
+        del release_dict[release]
+
     data_g.add((release, MO.track, track))
+
+
+def get_genre_vals(beets_dict):
+    genres = []
+    if (genre := beets_dict.get('genre')):
+        if ',' in genre:
+            genres += [g.strip() for g in genre.split(',')]
+        else:
+            genres += [genre]
+    if (style := beets_dict.get('style')):
+        if ',' in style:
+            genres += [s.strip() for s in style.split(',')]
+        else:
+            genres += [genre]
+    return genres
 
 
 def file_hash(file_path, chunksize=65536):
     hasher = blake3()
     chunk = 0
+    #no hashing for test speed
     import uuid
     return str(uuid.uuid1())
     with open(file_path, "rb") as f:
@@ -373,7 +347,7 @@ if __name__ == "__main__":
 
     #cereal = file_g.serialize(format='nt').decode('utf-8')
     #print(cereal)
-    cereal = data_g.serialize(format='turtle', all_bnodes=True)#.decode('utf-8')
+    cereal = data_g.serialize(format='nt')#, all_bnodes=True)#.decode('utf-8')
     print(cereal)
     #cereal = time_g.serialize(format='turtle', all_bnodes=True)#.decode('utf-8')
     #print(cereal)
