@@ -10,6 +10,8 @@ from rdflib.collection import Collection
 from rdflib.namespace import RDF, RDFS, OWL, FOAF, DC, PROV, XSD, TIME
 from blake3 import blake3
 from beets.library import Library
+from uris import discogs
+
 
 FRBR = rdf.Namespace('http://purl.org/vocab/frbr/core')
 MO = rdf.Namespace('http://purl.org/ontology/mo/')
@@ -162,11 +164,7 @@ def release_from_beets(data_g, time_g, release_uri, source, _beets):
             time_g.add((date, RDF.type, date_type))
         data_g.add((release_uri, EVENT.time, time_node))
 
-    for genre_name in get_genre_vals(_beets):
-        genre_lbl = rdf.Literal(genre_name)
-        genre = rdf_matchorinit(((None, FOAF.name, genre_lbl),
-                                 (None, RDF.type, MO.Genre)), data_g)
-        data_g.add((release_uri, MO.genre, genre))
+    add_genres(release_uri, data_g, _beets)
 
     if label_uri:
         data_g.add((label_uri, RDF.type, MO.Label))
@@ -222,11 +220,7 @@ def add_to_graph(data_g, file_g, time_g, beets_lib, data):
     data_g.add((track, FOAF.maker, artist))
     data_g.add((artist, FOAF.made, track))
 
-    for genre_name in get_genre_vals(data):
-        genre_lbl = rdf.Literal(genre_name)
-        genre = rdf_matchorinit(((None, FOAF.name, genre_lbl),
-                                 (None, RDF.type, MO.Genre)), data_g)
-        data_g.add((track, MO.genre, genre))
+    add_genres(track, data_g, data)
 
     if release not in data_g.subjects():
         beetz_release = beets_lib.get_album(data['album_id'])
@@ -237,14 +231,39 @@ def add_to_graph(data_g, file_g, time_g, beets_lib, data):
     if len(tracklist) == data['tracktotal']:
         #add tracklist to release
         sorted_tracklist = [track[1] for track in sorted(tracklist)]
-        tracklist_node = Collection(data_g, None, sorted_tracklist)._get_container(0)
+        tracklist_node = Collection(data_g, None,
+                                    sorted_tracklist)._get_container(0)
         data_g.add((release, XCAT.tracklist, tracklist_node))
-        #print(release)
-        #print(sorted_tracklist)
         del release_dict[release]
 
     data_g.add((release, MO.track, track))
 
+
+def add_genres(subj, data_g, beets_dict):
+    genres, styles, unmatched = discogs.genre_styles(get_genre_vals(beets_dict),
+                                                     get_style_vals(beets_dict))
+    for genre_name, genre_uri in genres:
+        genre_uri = rdf.URIRef(genre_uri)
+        genre_name = rdf.Literal(genre_name)
+        if genre_uri not in data_g.subjects():
+            data_g.add((genre_uri, RDF.type, MO.Genre))
+            data_g.add((genre_uri, RDFS.label, genre_name))
+        data_g.add((subj, MO.genre, genre_uri))
+
+    for style_name, style_uri in styles:
+        style_uri = rdf.URIRef(style_uri)
+        style_name = rdf.Literal(style_name)
+        if style_uri not in data_g.subjects():
+            data_g.add((style_uri, RDF.type, XCAT.Style))
+            data_g.add((style_uri, RDFS.label, style_name))
+        data_g.add((subj, XCAT.style, style_uri))
+
+    for unmatched_name in unmatched:
+        style_name = rdf.Literal(unmatched_name)
+        rdf_matchorinit(((None, RDFS.label, rdf.Literal(unmatched_name)),
+                         (None, RDF.type, XCAT.Style)), data_g)
+
+    
 
 def get_genre_vals(beets_dict):
     genres = []
@@ -253,12 +272,17 @@ def get_genre_vals(beets_dict):
             genres += [g.strip() for g in genre.split(',')]
         else:
             genres += [genre]
+    return genres
+
+
+def get_style_vals(beets_dict):
+    styles = []
     if (style := beets_dict.get('style')):
         if ',' in style:
-            genres += [s.strip() for s in style.split(',')]
+            styles += [s.strip() for s in style.split(',')]
         else:
-            genres += [genre]
-    return genres
+            styles += [style]
+    return styles
 
 
 def file_hash(file_path, chunksize=65536):
@@ -347,7 +371,7 @@ if __name__ == "__main__":
 
     #cereal = file_g.serialize(format='nt').decode('utf-8')
     #print(cereal)
-    cereal = data_g.serialize(format='nt')#, all_bnodes=True)#.decode('utf-8')
+    cereal = data_g.serialize(format='turtle')#, all_bnodes=True)#.decode('utf-8')
     print(cereal)
     #cereal = time_g.serialize(format='turtle', all_bnodes=True)#.decode('utf-8')
     #print(cereal)
