@@ -4,7 +4,7 @@ import os
 import time
 import urllib.parse as url
 from collections import Hashable
-from datetime import date
+from datetime import datetime
 
 import rdflib as rdf
 from rdflib.collection import Collection
@@ -145,25 +145,10 @@ def release_from_beets(data_g, time_g, release_uri, source, _beets):
     data_g.add((albumartist, FOAF.made, release_uri))
 
     if (year := _beets['year']):
-        date = str(year)
-        date_type = XSD.gYear
-        instant_is = TIME.inXSDgYear
-        if (month := _beets['month']):
-            date += '-' + str(month).rjust(2, '0')
-            date_type = XSD.gYearMonth
-            instant_is = TIME.inXSDgYearMonth
-            if (day := _beets['day']):
-                date += '-' + str(day).rjust(2, '0')
-                date_type = XSD.date
-                instant_is = TIME.inXSDDate
-        date = rdf.Literal(date)
-
-        if not (time_node := time_g.value(None, instant_is, date)):
-            time_node = rdf.BNode()
-            time_g.add((time_node, instant_is, date))
-            time_g.add((time_node, RDF.type, TIME.Instant))
-            time_g.add((date, RDF.type, date_type))
-        data_g.add((release_uri, EVENT.time, time_node))
+        month = _beets.get('month')
+        day = _beets.get('day')
+        published_in = time_node(time_g, year=year, month=month, day=day)
+        data_g.add((release_uri, XCAT.published_in, published_in))
 
     add_genres(release_uri, data_g, _beets)
 
@@ -216,7 +201,7 @@ def add_to_graph(data_g, file_g, time_g, beets_lib, data):
     artist = rdf_matchorinit(((None, RDF.type, MO.MusicArtist),
                               (None, FOAF.name, artist_lbl)), data_g, artist)
 
-    add_date_added(time_g, track, mtime)
+    add_date_added(track, data_g, time_g, mtime)
 
     data_g.add((track, RDF.type, MO.Track))
     data_g.add((track, MO.item, file_URN))
@@ -244,8 +229,29 @@ def add_to_graph(data_g, file_g, time_g, beets_lib, data):
     data_g.add((release, MO.track, track))
 
 
-def add_date_added(track, time_g, timestamp):
-     pass
+def add_date_added(track, data_g, time_g, timestamp):
+    dt = datetime.fromtimestamp(timestamp)
+    t_node = time_node(time_g, year=dt.year, month=dt.month, day=dt.day,
+                       hour=dt.hour)
+    data_g.add((track, XCAT.added_in, t_node))
+
+
+def time_node(time_g, **kwargs):
+    argnames = ('year', 'month', 'day', 'hour', 'minute', 'second')
+    properties = (TIME.year, TIME.month, TIME.day,
+                  TIME.hour, TIME.minute, TIME.second)
+    precisions = (TIME.unitYear, TIME.unitMonth, TIME.unitDay,
+                  TIME.unitHour, TIME.unitMinute, TIME.unitSecond)
+    triples = [(None, RDF.type, TIME.GeneralDateTimeDescription)]
+    precision = None
+    for arg, prop, prec in zip(argnames, properties, precisions):
+        if (dt_frag := kwargs.get(arg)):
+            triples += [(None, prop, rdf.Literal(dt_frag))]
+            precision = prec
+        else:
+            break
+    triples += [(None, TIME.unitType, precision)]
+    return rdf_matchorinit(triples, time_g)
 
 
 def add_genres(subj, data_g, beets_dict):
@@ -370,6 +376,8 @@ if __name__ == "__main__":
     args = parser.parse_args()
     path = os.path.abspath(args.input)
     beets_lib = beets_init('../data/ext/music.db')
+    graph_location = '../data/n3/'
+    graph_files = ('file_g.n3', 'time_g.n3', 'data_g.n3')
 
     dirpaths = rec_load_dir(path, beets_lib)
     file_g = rdf.Graph()
@@ -381,11 +389,12 @@ if __name__ == "__main__":
         for entry in in_db.values():
             add_to_graph(data_g, file_g, time_g, beets_lib, entry)
 
-    #cereal = file_g.serialize(format='').decode('utf-8')
-    cereal = file_g.serialize(format='turtle', all_bnodes=True)#.decode('utf-8')
-    print(cereal)
-    #cereal = data_g.serialize(format='turtle')#, all_bnodes=True)#.decode('utf-8')
-    cereal = data_g.serialize(format='turtle', all_bnodes=True)#.decode('utf-8')
-    print(cereal)
-    cereal = time_g.serialize(format='turtle', all_bnodes=True)#.decode('utf-8')
-    print(cereal)
+    for graph, filename in zip((file_g, time_g, data_g), graph_files):
+        g_path = os.path.join(graph_location, filename)
+        graph.serialize(g_path, format='nt', encoding='utf-8')
+    #cereal = file_g.serialize(format='turtle', all_bnodes=True)
+    #print(cereal)
+    #cereal = data_g.serialize(format='turtle', all_bnodes=True)
+    #print(cereal)
+    #cereal = time_g.serialize(format='turtle', all_bnodes=True)
+    #print(cereal)
