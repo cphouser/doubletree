@@ -4,6 +4,7 @@ import os
 import time
 import urllib.parse as url
 from collections import Hashable
+from datetime import date
 
 import rdflib as rdf
 from rdflib.collection import Collection
@@ -183,6 +184,8 @@ def add_to_graph(data_g, file_g, time_g, beets_lib, data):
     artist_lbl = rdf.Literal(data['artist'])
     rel_lbl = rdf.Literal(data['album'])
     track_num = rdf.Literal(data['track'])
+    mtime = data['_mtime']
+    #print(file_path, mtime)
 
     file_g.add((file_URN, RDF.type, MO.AudioFile))
     file_g.add((file_URN, MO.encoding, rdf.Literal(data['format'])))
@@ -213,6 +216,8 @@ def add_to_graph(data_g, file_g, time_g, beets_lib, data):
     artist = rdf_matchorinit(((None, RDF.type, MO.MusicArtist),
                               (None, FOAF.name, artist_lbl)), data_g, artist)
 
+    add_date_added(time_g, track, mtime)
+
     data_g.add((track, RDF.type, MO.Track))
     data_g.add((track, MO.item, file_URN))
     data_g.add((track, MO.track_number, track_num))
@@ -237,6 +242,10 @@ def add_to_graph(data_g, file_g, time_g, beets_lib, data):
         del release_dict[release]
 
     data_g.add((release, MO.track, track))
+
+
+def add_date_added(track, time_g, timestamp):
+     pass
 
 
 def add_genres(subj, data_g, beets_dict):
@@ -337,12 +346,15 @@ def rec_load_dir(base_path, lib=None):
         not_in_db = {}
         for filename in filenames:
             fullpath = os.path.join(dirpath, filename)
+            _mtime = os.stat(fullpath).st_mtime
             if lib and (filedata := beets_find_track(lib, fullpath)):
                 _hash = file_hash(fullpath)
                 in_db[filename] = dict(_hash=_hash,
+                                       _mtime=_mtime,
                                        _url=url.quote(fullpath), **filedata)
             else:
                 not_in_db[filename] = dict(_hash=None,
+                                           _mtime=_mtime,
                                            _url=url.quote(fullpath))
         if in_db or not_in_db:
             dirpaths[dirpath] = (in_db, not_in_db)
@@ -369,9 +381,11 @@ if __name__ == "__main__":
         for entry in in_db.values():
             add_to_graph(data_g, file_g, time_g, beets_lib, entry)
 
-    #cereal = file_g.serialize(format='nt').decode('utf-8')
-    #print(cereal)
-    cereal = data_g.serialize(format='turtle')#, all_bnodes=True)#.decode('utf-8')
+    #cereal = file_g.serialize(format='').decode('utf-8')
+    cereal = file_g.serialize(format='turtle', all_bnodes=True)#.decode('utf-8')
     print(cereal)
-    #cereal = time_g.serialize(format='turtle', all_bnodes=True)#.decode('utf-8')
-    #print(cereal)
+    #cereal = data_g.serialize(format='turtle')#, all_bnodes=True)#.decode('utf-8')
+    cereal = data_g.serialize(format='turtle', all_bnodes=True)#.decode('utf-8')
+    print(cereal)
+    cereal = time_g.serialize(format='turtle', all_bnodes=True)#.decode('utf-8')
+    print(cereal)
