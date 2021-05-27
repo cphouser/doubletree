@@ -3,79 +3,20 @@
 import os
 import time
 import urllib.parse as url
-from collections import Hashable
-from datetime import datetime
+#from collections import Hashable
 import pickle
 
 import rdflib as rdf
 from rdflib.container import Seq
 from rdflib.namespace import RDF, RDFS, OWL, FOAF, DC, PROV, XSD, TIME
-from blake3 import blake3
 from beets.library import Library
-from rdf_util import discogs, graphs
 
-
-FRBR = rdf.Namespace('http://purl.org/vocab/frbr/core')
-MO = rdf.Namespace('http://purl.org/ontology/mo/')
-EVENT = rdf.Namespace('http://purl.org/NET/c4dm/event.owl#')
-
-B3 = rdf.Namespace('hash://blake3/')
-LOCAL = rdf.Namespace('PSEUDOCRAFT:')
-XCAT = rdf.Namespace('http://xeroxc.at/schema#')
+from rdf_util import discogs
+from rdf_util import graphs as rdfg
+from rdf_util.namespaces import MO, B3, LOCAL, XCAT
+from rdf_util import files
 
 release_dict = {}
-
-def rdf_match(query, graph, unique=False):
-    matching_values = set()
-    matching_triples = graph.triples(query[0])
-    blank_idx = query[0].index(None)
-    for match in matching_triples:
-        matching_values.add(match[blank_idx])
-    for triple in query[1:]:
-        if not matching_values:
-            return None if unique else set()
-        else:
-            triple = list(triple)
-            blank_idx = triple.index(None)
-            for value in tuple(matching_values):
-                triple[blank_idx] = value
-                if not tuple(graph.triples(triple)):
-                    matching_values.remove(value)
-
-    if unique:
-        if not matching_values:
-            return None
-        elif len(matching_values) == 1:
-            return matching_values.pop()
-        else:
-            raise Exception(f'Result from query:\n {query}\n '
-                            f'is non-unique. Results: {matching_values}')
-    else:
-        return matching_values
-
-
-def rdf_matchorinit(query, graph, node=None):
-    if not (result := rdf_match(query, graph, unique=True)):
-        result = node or rdf.BNode()
-        for triple in query:
-            blank_idx = triple.index(None)
-            triple = list(triple)
-            triple[blank_idx] = result
-            graph.add(triple)
-    elif node and isinstance(result, rdf.BNode):
-        for pred, obj in data_g.predicate_objects(result):
-            graph.remove((result, pred, obj))
-            graph.add((node, pred, obj))
-        for subj, pred in data_g.subject_predicates(result):
-            graph.remove((subj, pred, result))
-            graph.add((subj, pred, node))
-        result = node
-    elif (isinstance(result, rdf.URIRef) and isinstance(node, rdf.URIRef)
-          and result != node):
-        raise Exception("Implement a SameAs?")
-
-    return result
-
 
 def discogs_url(key, value):
     base = "http://www.discogs.com/"
@@ -139,7 +80,7 @@ def release_from_beets(data_g, time_g, release_uri, source, _beets):
     else:
         print("what source?", source, release_uri)
 
-    albumartist = rdf_matchorinit(((None, RDF.type, MO.MusicArtist),
+    albumartist = rdfg.matchorinit(((None, RDF.type, MO.MusicArtist),
                                    (None, FOAF.name, albumartist_lbl)),
                                   data_g, albumartist)
     data_g.add((release_uri, FOAF.maker, albumartist))
@@ -148,7 +89,7 @@ def release_from_beets(data_g, time_g, release_uri, source, _beets):
     if (year := _beets['year']):
         month = _beets.get('month')
         day = _beets.get('day')
-        published_in = time_node(time_g, year=year, month=month, day=day)
+        published_in = rdfg.time_node(time_g, year=year, month=month, day=day)
         data_g.add((release_uri, XCAT.published_during, published_in))
 
     add_genres(release_uri, data_g, _beets)
@@ -181,7 +122,7 @@ def add_to_graph(data_g, file_g, time_g, beets_lib, data):
     if source == 'Discogs':
         artist = discogs_url('artist', data['discogs_artistid'])
         release = discogs_url('release', data['discogs_albumid'])
-        track = rdf_match(((None, DC.title, track_lbl),
+        track = rdfg.match(((None, DC.title, track_lbl),
                            (None, MO.track_number, track_num),
                            (release, MO.track, None)),
                           data_g, unique=True) or rdf.BNode()
@@ -199,10 +140,10 @@ def add_to_graph(data_g, file_g, time_g, beets_lib, data):
         release = rdf.URIRef(data['mb_albumid'])
         track = rdf.URIRef(data['mb_trackid'])
 
-    artist = rdf_matchorinit(((None, RDF.type, MO.MusicArtist),
+    artist = rdfg.matchorinit(((None, RDF.type, MO.MusicArtist),
                               (None, FOAF.name, artist_lbl)), data_g, artist)
 
-    add_date_added(track, data_g, time_g, mtime)
+    rdfg.add_date_added(track, data_g, time_g, mtime)
 
     data_g.add((track, RDF.type, MO.Track))
     data_g.add((track, MO.item, file_URN))
@@ -232,31 +173,6 @@ def add_to_graph(data_g, file_g, time_g, beets_lib, data):
     data_g.add((track, DC.title, track_lbl))
 
 
-def add_date_added(track, data_g, time_g, timestamp):
-    dt = datetime.fromtimestamp(timestamp)
-    t_node = time_node(time_g, year=dt.year, month=dt.month, day=dt.day,
-                       hour=dt.hour)
-    data_g.add((track, XCAT.added_during, t_node))
-
-
-def time_node(time_g, **kwargs):
-    argnames = ('year', 'month', 'day', 'hour', 'minute', 'second')
-    properties = (TIME.year, TIME.month, TIME.day,
-                  TIME.hour, TIME.minute, TIME.second)
-    precisions = (TIME.unitYear, TIME.unitMonth, TIME.unitDay,
-                  TIME.unitHour, TIME.unitMinute, TIME.unitSecond)
-    triples = [(None, RDF.type, TIME.GeneralDateTimeDescription)]
-    precision = None
-    for arg, prop, prec in zip(argnames, properties, precisions):
-        if (dt_frag := kwargs.get(arg)):
-            triples += [(None, prop, rdf.Literal(dt_frag))]
-            precision = prec
-        else:
-            break
-    triples += [(None, TIME.unitType, precision)]
-    return rdf_matchorinit(triples, time_g)
-
-
 def add_genres(subj, data_g, beets_dict):
     genres, styles, unmatched = discogs.genre_styles(get_genre_vals(beets_dict),
                                                      get_style_vals(beets_dict))
@@ -284,7 +200,7 @@ def add_genres(subj, data_g, beets_dict):
 
     for unmatched_name in unmatched:
         style_name = rdf.Literal(unmatched_name)
-        rdf_matchorinit(((None, RDFS.label, rdf.Literal(unmatched_name)),
+        rdfg.matchorinit(((None, RDFS.label, rdf.Literal(unmatched_name)),
                          (None, RDF.type, XCAT.Style)), data_g)
 
 
@@ -306,27 +222,6 @@ def get_style_vals(beets_dict):
         else:
             styles += [style]
     return styles
-
-
-def file_hash(file_path, chunksize=65536):
-    hasher = blake3()
-    chunk = 0
-    with open(file_path, "rb") as f:
-        try:
-            fullsize = os.path.getsize(file_path)
-            print(f'\thashing {file_path[-80:]} {fullsize//1024}KiB ', end='\r')
-            while True:
-                some_bytes = f.read(chunksize)
-                chunk += 1
-                print(f'{int(((chunk*chunksize)/fullsize)*100)}% ', end='\r')
-                if not some_bytes:
-                    break
-                hasher.update(some_bytes)
-            print(' ' * 120, end='\r')
-        except KeyboardInterrupt:
-            time.sleep(2)
-            return None
-    return hasher.hexdigest()
 
 
 def beets_find_track(lib, path):
@@ -359,7 +254,7 @@ def rec_load_dir(base_path, lib=None):
             fullpath = os.path.join(dirpath, filename)
             _mtime = os.stat(fullpath).st_mtime
             if lib and (filedata := beets_find_track(lib, fullpath)):
-                _hash = file_hash(fullpath)
+                _hash = files.file_hash(fullpath, interactive=True)
                 in_db[filename] = dict(_hash=_hash,
                                        _mtime=_mtime,
                                        _url=url.quote(fullpath), **filedata)
@@ -392,7 +287,9 @@ if __name__ == "__main__":
     graph_location = os.path.join(data_location, 'nt/')
     graph_files = ('file_g', 'time_g', 'data_g')
 
-    if not args.reload:
+    if args.reload:
+        cache = None
+    else:
         try:
             cache = pickle.load(open(cache_file, 'rb'))
         except Exception as e:
@@ -416,14 +313,11 @@ if __name__ == "__main__":
     for dir, (in_db, not_in_db) in dirpaths.items():
         for entry in in_db.values():
             add_to_graph(data_g, file_g, time_g, beets_lib, entry)
+        print(dir)
+        for entry in not_in_db.values():
+            print('\t', entry['_url'])
 
     for graph, filename in zip((file_g, time_g, data_g), graph_files):
         g_path = os.path.join(graph_location, filename)
-        graph.serialize(g_path + '.ttl', format='turtle')
-        graph.serialize(g_path + '.nt', format='nt')
-    #cereal = file_g.serialize(format='turtle', all_bnodes=True)
-    #print(cereal)
-    #cereal = data_g.serialize(format='turtle', all_bnodes=True)
-    #print(cereal)
-    #cereal = time_g.serialize(format='turtle', all_bnodes=True)
-    #print(cereal)
+        graph.serialize(g_path + '.ttl.2', format='turtle')
+        graph.serialize(g_path + '.nt.2', format='nt')
