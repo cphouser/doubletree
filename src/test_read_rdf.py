@@ -31,3 +31,4 @@ if __name__ == '__main__':
         tracklist = full_graph.value(work, XCAT.tracklist, None)
         for track in Seq(full_graph, tracklist).items():
             print('\t', track, full_graph.value(track, MO.track_number, None))
+            print('\t\t', rdfg.file_node_path(full_graph, track))
