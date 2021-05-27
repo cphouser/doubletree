@@ -5,13 +5,14 @@ import time
 import urllib.parse as url
 from collections import Hashable
 from datetime import datetime
+import pickle
 
 import rdflib as rdf
-from rdflib.collection import Collection
+from rdflib.container import Seq
 from rdflib.namespace import RDF, RDFS, OWL, FOAF, DC, PROV, XSD, TIME
 from blake3 import blake3
 from beets.library import Library
-from uris import discogs
+from rdf_util import discogs, graphs
 
 
 FRBR = rdf.Namespace('http://purl.org/vocab/frbr/core')
@@ -148,7 +149,7 @@ def release_from_beets(data_g, time_g, release_uri, source, _beets):
         month = _beets.get('month')
         day = _beets.get('day')
         published_in = time_node(time_g, year=year, month=month, day=day)
-        data_g.add((release_uri, XCAT.published_in, published_in))
+        data_g.add((release_uri, XCAT.published_during, published_in))
 
     add_genres(release_uri, data_g, _beets)
 
@@ -221,19 +222,21 @@ def add_to_graph(data_g, file_g, time_g, beets_lib, data):
     if len(tracklist) == data['tracktotal']:
         #add tracklist to release
         sorted_tracklist = [track[1] for track in sorted(tracklist)]
-        tracklist_node = Collection(data_g, None,
-                                    sorted_tracklist)._get_container(0)
+        tracklist_node = Seq(data_g, None,
+                             sorted_tracklist)._get_container()
         data_g.add((release, XCAT.tracklist, tracklist_node))
+        data_g.add((tracklist_node, RDF.type, XCAT.Tracklist))
         del release_dict[release]
 
     data_g.add((release, MO.track, track))
+    data_g.add((track, DC.title, track_lbl))
 
 
 def add_date_added(track, data_g, time_g, timestamp):
     dt = datetime.fromtimestamp(timestamp)
     t_node = time_node(time_g, year=dt.year, month=dt.month, day=dt.day,
                        hour=dt.hour)
-    data_g.add((track, XCAT.added_in, t_node))
+    data_g.add((track, XCAT.added_during, t_node))
 
 
 def time_node(time_g, **kwargs):
@@ -265,12 +268,18 @@ def add_genres(subj, data_g, beets_dict):
             data_g.add((genre_uri, RDFS.label, genre_name))
         data_g.add((subj, MO.genre, genre_uri))
 
-    for style_name, style_uri in styles:
+    for (style_name, style_uri), (genre_name, genre_uri) in styles:
         style_uri = rdf.URIRef(style_uri)
+        genre_uri = rdf.URIRef(genre_uri)
         style_name = rdf.Literal(style_name)
+        genre_name = rdf.Literal(genre_name)
         if style_uri not in data_g.subjects():
             data_g.add((style_uri, RDF.type, XCAT.Style))
             data_g.add((style_uri, RDFS.label, style_name))
+            if genre_uri not in data_g.subjects():
+                data_g.add((genre_uri, RDF.type, MO.Genre))
+                data_g.add((genre_uri, RDFS.label, genre_name))
+            data_g.add((style_uri, XCAT.genre, genre_uri))
         data_g.add((subj, XCAT.style, style_uri))
 
     for unmatched_name in unmatched:
@@ -278,7 +287,6 @@ def add_genres(subj, data_g, beets_dict):
         rdf_matchorinit(((None, RDFS.label, rdf.Literal(unmatched_name)),
                          (None, RDF.type, XCAT.Style)), data_g)
 
-    
 
 def get_genre_vals(beets_dict):
     genres = []
@@ -303,9 +311,6 @@ def get_style_vals(beets_dict):
 def file_hash(file_path, chunksize=65536):
     hasher = blake3()
     chunk = 0
-    #no hashing for test speed
-    import uuid
-    return str(uuid.uuid1())
     with open(file_path, "rb") as f:
         try:
             fullsize = os.path.getsize(file_path)
@@ -373,13 +378,36 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument('input', help='file or folder to scan')
+    parser.add_argument('--beets-library', '-b',
+                        help='beets sqlite db to reference')
+    parser.add_argument('--reload', '-r', action='store_true',
+                        help='beets sqlite db to reference')
     args = parser.parse_args()
     path = os.path.abspath(args.input)
-    beets_lib = beets_init('../data/ext/music.db')
-    graph_location = '../data/n3/'
-    graph_files = ('file_g.n3', 'time_g.n3', 'data_g.n3')
+    data_location = '../data/'
+    beets_path = args.beets_library or os.path.join(data_location,
+                                                    'ext/music.db')
+    beets_lib = beets_init(beets_path)
+    cache_file = os.path.join(data_location, 'cache/loaded_dir.pickle')
+    graph_location = os.path.join(data_location, 'nt/')
+    graph_files = ('file_g', 'time_g', 'data_g')
 
-    dirpaths = rec_load_dir(path, beets_lib)
+    if not args.reload:
+        try:
+            cache = pickle.load(open(cache_file, 'rb'))
+        except Exception as e:
+            cache = None
+            print(f'could not load cache {cache_file}')
+            print(e)
+            print()
+
+    if cache:
+        dirpaths = cache
+    else:
+        dirpaths = rec_load_dir(path, beets_lib)
+
+    pickle.dump(dirpaths, open(cache_file, 'wb'))
+
     file_g = rdf.Graph()
     time_g = rdf.Graph()
     data_g = rdf.Graph()
@@ -391,7 +419,8 @@ if __name__ == "__main__":
 
     for graph, filename in zip((file_g, time_g, data_g), graph_files):
         g_path = os.path.join(graph_location, filename)
-        graph.serialize(g_path, format='nt', encoding='utf-8')
+        graph.serialize(g_path + '.ttl', format='turtle')
+        graph.serialize(g_path + '.nt', format='nt')
     #cereal = file_g.serialize(format='turtle', all_bnodes=True)
     #print(cereal)
     #cereal = data_g.serialize(format='turtle', all_bnodes=True)

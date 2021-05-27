@@ -1,0 +1,86 @@
+@prefix : <http://xeroxc.at/schema#> .
+@prefix dc: <http://purl.org/dc/elements/1.1/> .
+@prefix mo: <http://purl.org/ontology/mo/> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix xml: <http://www.w3.org/XML/1998/namespace> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix time: <http://www.w3.org/2006/time#> .
+@base <http://xeroxc.at/schema#> .
+
+<http://xeroxc.at/schema#> rdf:type owl:Ontology ;
+    owl:imports mo: ,
+    rdf: .
+
+#################################################################
+#    Object Properties
+#################################################################
+
+###  http://xeroxc.at/schema#added_during
+:added_during rdf:type owl:ObjectProperty ;
+    rdfs:domain mo:MusicalManifestation ;
+    rdfs:range time:GeneralDateTimeDescription ;
+    rdfs:comment "when a musical manifestation was added the collection" .
+
+
+###  http://xeroxc.at/schema#played_during
+:played_during rdf:type owl:ObjectProperty ;
+    rdfs:domain mo:MusicalManifestation ;
+    rdfs:range time:GeneralDateTimeDescription ;
+    rdfs:comment "when a musical manifestation was played" .
+
+
+###  http://xeroxc.at/schema#genre
+:genre rdf:type owl:ObjectProperty ;
+    rdfs:domain :Style ;
+    rdfs:range mo:Genre ;
+    rdfs:comment "a Style's parent Genre" .
+
+
+###  http://xeroxc.at/schema#published_during
+:published_during rdf:type owl:ObjectProperty ;
+    rdfs:domain mo:MusicalManifestation ;
+    rdfs:range time:GeneralDateTimeDescription ;
+    rdfs:comment "when a musical manifestation was published" .
+
+
+###  http://xeroxc.at/schema#style
+:style rdf:type owl:ObjectProperty ;
+    rdfs:domain [ rdf:type owl:Class ;
+    owl:unionOf ( mo:Arrangement
+            mo:Composition
+            mo:MusicalExpression
+            mo:MusicalItem
+            mo:MusicalManifestation
+            mo:MusicalWork
+            mo:Performance
+            mo:Recording
+            mo:RecordingSession
+            <http://xmlns.com/foaf/0.1/Agent>
+    )
+    ] ;
+    rdfs:range :Style ;
+    rdfs:comment "the Style of some musical entity" .
+
+
+###  http://xeroxc.at/schema#tracklist
+:tracklist rdf:type owl:ObjectProperty ;
+    rdfs:domain mo:Release ;
+    rdfs:range :Tracklist ;
+    rdfs:comment "the Sequence of Tracks that comprise a Release" .
+
+
+#################################################################
+#    Classes
+#################################################################
+
+###  http://xeroxc.at/schema#Style
+:Style rdf:type owl:Class ;
+    rdfs:comment "a Musical Style, defined by discogs as a subclassification of some Genre" .
+
+
+###  http://xeroxc.at/schema#Tracklist
+:Tracklist rdf:type owl:Class ;
+    rdfs:subClassOf rdf:Seq ;
+    rdfs:comment "The Sequence of tracks included on a release" .
