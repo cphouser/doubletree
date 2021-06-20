@@ -82,6 +82,12 @@ xcat:Work
     rdfs:label "Work" ;
     rdfs:subClassOf rdfs:Resource .
 
+xcat:accessed_during
+    a rdf:Property ;
+    rdfs:domain xcat:File ;
+    rdfs:label "accessed_during" ;
+    rdfs:range xcat:LDateTime .
+
 xcat:added_during
     a rdf:Property ;
     rdfs:domain xcat:File ;
