@@ -1,0 +1,25 @@
+beets @ git+https://github.com/beetbox/beets.git@0d624191329f5ef5f9acf40ebd7c46b578383222
+blake3==0.1.8
+cached-property==1.5.2
+certifi==2020.12.5
+chardet==4.0.0
+confuse==1.4.0
+discogs-client==2.3.0
+frozendict==2.0.2
+idna==2.10
+isodate==0.6.0
+jellyfish==0.8.2
+mediafile==0.6.0
+munkres==1.1.4
+musicbrainzngs==0.7.1
+mutagen==1.45.1
+oauthlib==3.1.1
+pycountry==20.7.3
+pyparsing==2.4.7
+pyswip==0.2.10
+PyYAML==5.4.1
+rdflib==5.0.0
+requests==2.25.1
+six==1.15.0
+Unidecode==1.2.0
+urllib3==1.26.5
