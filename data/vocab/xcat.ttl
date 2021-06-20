@@ -1,86 +1,252 @@
-@prefix : <http://xeroxc.at/schema#> .
-@prefix dc: <http://purl.org/dc/elements/1.1/> .
-@prefix mo: <http://purl.org/ontology/mo/> .
-@prefix owl: <http://www.w3.org/2002/07/owl#> .
 @prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
-@prefix xml: <http://www.w3.org/XML/1998/namespace> .
-@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
 @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
-@prefix time: <http://www.w3.org/2006/time#> .
-@base <http://xeroxc.at/schema#> .
+@prefix xcat: <http://xeroxc.at/schema#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
 
-<http://xeroxc.at/schema#> rdf:type owl:Ontology ;
-    owl:imports mo: ,
-    rdf: .
+xcat:Agent
+    a rdfs:Class ;
+    rdfs:label "Agent" ;
+    rdfs:subClassOf xcat:Named .
 
-#################################################################
-#    Object Properties
-#################################################################
+xcat:Artist
+    a rdfs:Class ;
+    rdfs:label "Artist" ;
+    rdfs:subClassOf xcat:Agent .
 
-###  http://xeroxc.at/schema#added_during
-:added_during rdf:type owl:ObjectProperty ;
-    rdfs:domain mo:MusicalManifestation ;
-    rdfs:range time:GeneralDateTimeDescription ;
-    rdfs:comment "when a musical manifestation was added the collection" .
+xcat:AudioFile
+    a rdfs:Class ;
+    rdfs:label "AudioFile" ;
+    rdfs:subClassOf xcat:File .
 
+xcat:Classification
+    a rdfs:Class ;
+    rdfs:label "Classification" ;
+    rdfs:subClassOf xcat:Named .
 
-###  http://xeroxc.at/schema#played_during
-:played_during rdf:type owl:ObjectProperty ;
-    rdfs:domain mo:MusicalManifestation ;
-    rdfs:range time:GeneralDateTimeDescription ;
-    rdfs:comment "when a musical manifestation was played" .
+xcat:DirEntry
+    a rdfs:Class ;
+    rdfs:label "DirEntry" ;
+    rdfs:subClassOf rdfs:Resource .
 
+xcat:Directory
+    a rdfs:Class ;
+    rdfs:label "Directory" ;
+    rdfs:subClassOf xcat:DirEntry .
 
-###  http://xeroxc.at/schema#genre
-:genre rdf:type owl:ObjectProperty ;
-    rdfs:domain :Style ;
-    rdfs:range mo:Genre ;
-    rdfs:comment "a Style's parent Genre" .
+xcat:File
+    a rdfs:Class ;
+    rdfs:label "File" ;
+    rdfs:subClassOf xcat:DirEntry .
 
+xcat:Genre
+    a rdfs:Class ;
+    rdfs:label "Genre" ;
+    rdfs:subClassOf xcat:Classification .
 
-###  http://xeroxc.at/schema#published_during
-:published_during rdf:type owl:ObjectProperty ;
-    rdfs:domain mo:MusicalManifestation ;
-    rdfs:range time:GeneralDateTimeDescription ;
-    rdfs:comment "when a musical manifestation was published" .
+xcat:LDateTime
+    a rdfs:Datatype ;
+    rdfs:label "LDateTime" .
 
+xcat:MusicLabel
+    a rdfs:Class ;
+    rdfs:label "MusicLabel" ;
+    rdfs:subClassOf xcat:Agent .
 
-###  http://xeroxc.at/schema#style
-:style rdf:type owl:ObjectProperty ;
-    rdfs:domain [ rdf:type owl:Class ;
-    owl:unionOf ( mo:Arrangement
-            mo:Composition
-            mo:MusicalExpression
-            mo:MusicalItem
-            mo:MusicalManifestation
-            mo:MusicalWork
-            mo:Performance
-            mo:Recording
-            mo:RecordingSession
-            <http://xmlns.com/foaf/0.1/Agent>
-    )
-    ] ;
-    rdfs:range :Style ;
-    rdfs:comment "the Style of some musical entity" .
+xcat:Named
+    a rdfs:Class ;
+    rdfs:label "Named" ;
+    rdfs:subClassOf rdfs:Resource .
 
+xcat:Recording
+    a rdfs:Class ;
+    rdfs:label "Recording" ;
+    rdfs:subClassOf xcat:Work .
 
-###  http://xeroxc.at/schema#tracklist
-:tracklist rdf:type owl:ObjectProperty ;
-    rdfs:domain mo:Release ;
-    rdfs:range :Tracklist ;
-    rdfs:comment "the Sequence of Tracks that comprise a Release" .
+xcat:Release
+    a rdfs:Class ;
+    rdfs:label "Release" ;
+    rdfs:subClassOf xcat:Work .
 
+xcat:Style
+    a rdfs:Class ;
+    rdfs:label "Style" ;
+    rdfs:subClassOf xcat:Classification .
 
-#################################################################
-#    Classes
-#################################################################
+xcat:TrackList
+    a rdfs:Class ;
+    rdfs:label "TrackList" ;
+    rdfs:subClassOf rdf:Seq .
 
-###  http://xeroxc.at/schema#Style
-:Style rdf:type owl:Class ;
-    rdfs:comment "a Musical Style, defined by discogs as a subclassification of some Genre" .
+xcat:Work
+    a rdfs:Class ;
+    rdfs:label "Work" ;
+    rdfs:subClassOf rdfs:Resource .
 
+xcat:added_during
+    a rdf:Property ;
+    rdfs:domain xcat:File ;
+    rdfs:label "added_during" ;
+    rdfs:range xcat:LDateTime .
 
-###  http://xeroxc.at/schema#Tracklist
-:Tracklist rdf:type owl:Class ;
-    rdfs:subClassOf rdf:Seq ;
-    rdfs:comment "The Sequence of tracks included on a release" .
+xcat:catalog_num
+    a rdf:Property ;
+    rdfs:domain xcat:Release ;
+    rdfs:label "catalog_num" ;
+    rdfs:range xsd:string .
+
+xcat:day
+    a rdf:Property ;
+    rdfs:domain xcat:LDateTime ;
+    rdfs:label "day" ;
+    rdfs:range xsd:gDay .
+
+xcat:dirEntry
+    a rdf:Property ;
+    rdfs:domain xcat:Directory ;
+    rdfs:label "dirEntry" ;
+    rdfs:range xcat:DirEntry .
+
+xcat:encoding
+    a rdf:Property ;
+    rdfs:domain xcat:AudioFile ;
+    rdfs:label "encoding" ;
+    rdfs:range xsd:string .
+
+xcat:file
+    a rdf:Property ;
+    rdfs:domain xcat:Recording ;
+    rdfs:label "file" ;
+    rdfs:range xcat:AudioFile .
+
+xcat:genre
+    a rdf:Property ;
+    rdfs:domain xcat:Work ;
+    rdfs:label "genre" ;
+    rdfs:range xcat:Genre .
+
+xcat:genre_style
+    a rdf:Property ;
+    rdfs:domain xcat:Genre ;
+    rdfs:label "genre_style" ;
+    rdfs:range xcat:Style .
+
+xcat:hash
+    a rdf:Property ;
+    rdfs:domain xcat:DirEntry ;
+    rdfs:label "hash" ;
+    rdfs:range xsd:string .
+
+xcat:hour
+    a rdf:Property ;
+    rdfs:domain xcat:LDateTime ;
+    rdfs:label "hour" ;
+    rdfs:range xsd:nonPositiveInteger .
+
+xcat:made
+    a rdf:Property ;
+    rdfs:domain xcat:Agent ;
+    rdfs:label "made" ;
+    rdfs:range xcat:Work .
+
+xcat:maker
+    a rdf:Property ;
+    rdfs:domain xcat:Work ;
+    rdfs:label "maker" ;
+    rdfs:range xcat:Agent .
+
+xcat:microsecond
+    a rdf:Property ;
+    rdfs:domain xcat:LDateTime ;
+    rdfs:label "microsecond" ;
+    rdfs:range xsd:nonNegativeInteger .
+
+xcat:minute
+    a rdf:Property ;
+    rdfs:domain xcat:LDateTime ;
+    rdfs:label "minute" ;
+    rdfs:range xsd:nonNegativeInteger .
+
+xcat:month
+    a rdf:Property ;
+    rdfs:domain xcat:LDateTime ;
+    rdfs:label "month" ;
+    rdfs:range xsd:gMonth .
+
+xcat:name
+    a rdf:Property ;
+    rdfs:domain xcat:Named ;
+    rdfs:label "name" ;
+    rdfs:range xsd:string .
+
+xcat:parent_genre
+    a rdf:Property ;
+    rdfs:domain xcat:Style ;
+    rdfs:label "parent_genre" ;
+    rdfs:range xcat:Genre .
+
+xcat:path
+    a rdf:Property ;
+    rdfs:domain xcat:DirEntry ;
+    rdfs:label "path" ;
+    rdfs:range xsd:string .
+
+xcat:published
+    a rdf:Property ;
+    rdfs:domain xcat:MusicLabel ;
+    rdfs:label "published" ;
+    rdfs:range xcat:Release .
+
+xcat:published_during
+    a rdf:Property ;
+    rdfs:domain xcat:Release ;
+    rdfs:label "published_during" ;
+    rdfs:range xcat:LDateTime .
+
+xcat:publisher
+    a rdf:Property ;
+    rdfs:domain xcat:Release ;
+    rdfs:label "publisher" ;
+    rdfs:range xcat:MusicLabel .
+
+xcat:recording
+    a rdf:Property ;
+    rdfs:domain xcat:AudioFile ;
+    rdfs:label "recording" ;
+    rdfs:range xcat:Recording .
+
+xcat:released_on
+    a rdf:Property ;
+    rdfs:domain xcat:Recording ;
+    rdfs:label "released_on" ;
+    rdfs:range xcat:Release .
+
+xcat:second
+    a rdf:Property ;
+    rdfs:domain xcat:LDateTime ;
+    rdfs:label "second" ;
+    rdfs:range xsd:nonNegativeInteger .
+
+xcat:style
+    a rdf:Property ;
+    rdfs:domain xcat:Work ;
+    rdfs:label "style" ;
+    rdfs:range xcat:Style .
+
+xcat:title
+    a rdf:Property ;
+    rdfs:domain xcat:Work ;
+    rdfs:label "title" ;
+    rdfs:range xsd:string .
+
+xcat:tracklist
+    a rdf:Property ;
+    rdfs:domain xcat:Release ;
+    rdfs:label "tracklist" ;
+    rdfs:range xcat:TrackList .
+
+xcat:year
+    a rdf:Property ;
+    rdfs:domain xcat:LDateTime ;
+    rdfs:label "year" ;
+    rdfs:range xsd:gYear .
+
