@@ -942,12 +942,14 @@ def genre_styles(genre_list, style_list):
     unmatched_styles = set()
     for style in style_list + unmatched_genres:
         norm_style = TEXT_ONLY.sub('', style).lower()
+        match = False
         for genre in matched_genres:
             if (match := STYLES[genre].get(norm_style)):
                 parent_genre = GENRES[genre]
                 style_results += [(match, parent_genre)]
-            else:
-                unmatched_styles.add((style))
+                match = True
+        if not match:
+            unmatched_styles.add((style))
     return genre_results, style_results, unmatched_styles
 
 

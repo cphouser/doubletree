@@ -30,3 +30,13 @@ def file_hash(file_path, chunksize=65536, interactive=False):
             time.sleep(2)
             return None
     return hasher.hexdigest()
+
+def hashlist_hash(hashlist):
+    """Hash a list of hash hexdigests, return the hexdigest.
+
+    result should be unique for a given list
+    """
+    list_bytes = b''.join(sorted([bytes.fromhex(_hash) for _hash in hashlist]))
+    hasher = blake3()
+    hasher.update(list_bytes)
+    return hasher.hexdigest()
