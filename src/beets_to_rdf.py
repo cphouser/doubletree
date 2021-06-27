@@ -10,7 +10,7 @@ from beets.library import Library
 from pyswip.prolog import Prolog
 
 from rdf_util import discogs
-from rdf_util.namespaces import MO, B3, LOCAL, XCAT
+from rdf_util.namespaces import B3, XCAT
 from rdf_util.b3 import file_hash, hashlist_hash
 from rdf_util.pl import query, xsd_type, rdf_find, new_bnode, LDateTime, TrackList
 
@@ -177,7 +177,7 @@ def track_from_beets(pl, beets_lib, data):
 
     ## Add the track
     query(pl, (('rdf_assert', (track, RDF.type, XCAT.Track)),
-               ('rdf_assert', (track, MO.file, file_URN)),
+               ('rdf_assert', (track, XCAT.file, file_URN)),
                ('rdf_assert', (track, XCAT.title, track_lbl)),
                ('rdf_assert', (track, XCAT.added_during, mtime_term)),
                ('rdf_assert', (track, XCAT.released_on, release)),

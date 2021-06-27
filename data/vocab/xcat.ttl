@@ -44,8 +44,9 @@ xcat:Genre
     rdfs:subClassOf xcat:Classification .
 
 xcat:LDateTime
-    a rdfs:Datatype ;
-    rdfs:label "LDateTime" .
+    a rdfs:Class ;
+    rdfs:label "LDateTime" ;
+    rdfs:subClassOf rdfs:Resource .
 
 xcat:MusicLabel
     a rdfs:Class ;

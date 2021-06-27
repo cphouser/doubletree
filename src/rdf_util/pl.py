@@ -104,3 +104,10 @@ def TrackList(pl, term_list, debug=False):
                               ('rdf_assert', (seq, RDF.type, XCAT.TrackList))
                               ))
     return seq
+
+
+def direct_subclasses(pl, resource=RDFS.Resource):
+    res = query(pl, [('rdf', ('_v:Subclass', RDFS.subClassOf, resource)),
+                     ('xcat_label', ('_v:Subclass', '_v:Label'))])
+    return sorted([(r['Subclass'], r['Label'].decode('utf-8')) for r in res],
+                  key=lambda x: x[1])
