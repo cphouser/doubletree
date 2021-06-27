@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-
 import os
 from collections import namedtuple
 import logging as log
@@ -9,9 +8,8 @@ from pyswip.prolog import Prolog
 import urwid as ur
 import urwidtrees as ur_tree
 
-#from rdf_util import discogs
-from rdf_util.namespaces import B3, XCAT
-#from rdf_util.b3 import file_hash, hashlist_hash
+from palette import palette
+#from rdf_util.namespaces import B3, XCAT
 from rdf_util.pl import (query, xsd_type, rdf_find, new_bnode, LDateTime,
                          TrackList, direct_subclasses)
 
@@ -21,7 +19,6 @@ Content = namedtuple('Content', ['label', 'parent', 'children'])
 
 class FocusableText(ur.WidgetWrap):
     def __init__(self, label):
-        #url, label = item
         t = ur.Text(label)
         w = ur.AttrMap(t, 'body', 'focus')
         ur.WidgetWrap.__init__(self, w)
@@ -93,40 +90,31 @@ class RDF_ClassTree(ur_tree.tree.Tree):
         return candidate
 
 
-class Welcome(ur.WidgetWrap):
-    def __init__(self):
+class Window(ur.WidgetWrap):
+    def __init__(self, pl):
         self.options = []
+        dtree = RDF_ClassTree(pl)
+        decorated_tree = ur_tree.decoration.CollapsibleArrowTree(
+                dtree, is_collapsed=(lambda x: dtree.parent_position(x)),
+                arrow_tip_char=None,
+                icon_frame_left_char=None, icon_frame_right_char=None,
+                icon_collapsed_char=u'\u25B6', icon_expanded_char=u'\u25B7')
 
-        #display_widget = ur.
+        # stick it into a ur_tree.widgets.TreeBox and use 'body' color
+        # attribute for gaps
+        tb = ur_tree.widgets.TreeBox(decorated_tree, focus=RDF_ClassTree.root)
+        display_widget = ur.AttrMap(tb, 'body')
+        ur.WidgetWrap.__init__(self, display_widget)
 
-def unhandled_input(k):
-    #exit on q
+def global_control(k):
     if k in ['q', 'Q']: raise ur.ExitMainLoop()
 
 def doubletree():
-    #Initialize Prolog Session
     pl = Prolog()
     pl.consult('init.pl')
 
-    palette = [
-        ('body', 'black', 'light gray'),
-        ('focus', 'light gray', 'dark blue', 'standout'),
-        ('bars', 'dark blue', 'light gray', ''),
-        ('arrowtip', 'light blue', 'light gray', ''),
-        ('connectors', 'light red', 'light gray', ''),
-    ]
-    dtree = RDF_ClassTree(pl)
-    decorated_tree = ur_tree.decoration.CollapsibleArrowTree(
-            dtree, is_collapsed=(lambda x: dtree.parent_position(x)),
-            arrow_tip_char=None,
-            icon_frame_left_char=None, icon_frame_right_char=None,
-            icon_collapsed_char=u'\u25B6', icon_expanded_char=u'\u25B7',)
-
-    # stick it into a ur_tree.widgets.TreeBox and use 'body' color attribute for gaps
-    tb = ur_tree.widgets.TreeBox(decorated_tree, focus=RDF_ClassTree.root)
-    root_widget = ur.AttrMap(tb, 'body')
-    ur.MainLoop(root_widget, palette,
-                unhandled_input=unhandled_input).run() # go
+    window = Window(pl)
+    ur.MainLoop(window, palette, unhandled_input=global_control).run()
 
 if __name__ == "__main__":
     log.basicConfig(filename='dbltree.log', encoding='utf-8', level=log.DEBUG)
