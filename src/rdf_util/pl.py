@@ -10,20 +10,82 @@ def query(pl=None, query=None, unique=False, debug=False):
     """
     Query the prolog rdf store.
 
-    query takes the following form:
+    query takes either of the following forms:
     ((predicate1, (arg1, arg2, ...)),
      (predicate2, (...)),
      ...
     )
+    or:
+    (predicate, (arg1, arg2, ...))
     where each arg is either a term or variable (prefixed by '_v:').
     RDF terms will be passed as their string value,
     prolog terms as tuples are TODO
     """
+    _, results = _query(pl, query, debug=debug)
+    result_list = []
+    for result in results:
+        result_list += [frozendict(result)]
+    return set(result_list) if unique else result_list
+
+
+def query_gen(pl=None, query=None, debug=False, result_type='tuple'):
+    #print(query)
+    varlist, results = _query(pl=pl, query=query, debug=debug)
+    #print('ffffff', varlist, list(results))
+    for result in results:
+        if debug:
+            print(result)
+        if result_type == 'tuple':
+            print([_utf8(result[var]) for var in varlist if var in result])
+            yield (_utf8(result[var]) for var in varlist if var in result)
+
+
+def fill_query(query, key_dict):
+    """
+    Returns a query which can be passed to query(). The query passed
+    to this function fits that form except may include variables
+    prefixed by '_k:'. These variables are replaced by the value in
+    key_dict corresponding to the variable name (excluding the '_k:')
+
+    therefore fill_query(('rdf', ('_k:Resource', RDF.type, '_v:Class')),
+                         {'Resource': XCAT.Artist})
+    will return ('rdf', (XCAT.Artist, RDF.type, '_v:Class'))
+    """
+    if isinstance(query[0], str):
+        query = [query]
+    new_query = []
+    for pred, args in query:
+        #print(pred, args)
+        for key, value in key_dict.items():
+            replaced = '_k:' + key
+            if args.count(replaced):
+                index = args.index(replaced)
+                new_query += [(pred,
+                    (args[:index] + tuple([value]) + args[index+1:]))]
+            #else:
+                #print(replaced, args.count(replaced))
+            #print(new_query)
+    #print(query, new_query, key_dict)
+    return tuple(new_query)
+
+def _utf8(var):
+    if isinstance(var, str):
+        return var
+    elif isinstance(var, bytes):
+        return var.decode('utf-8')
+    else:
+        raise Exception(f"implement {type(var)}")
+
+
+def _query(pl=None, query=None, debug=False):
+    #print('-----', query)
     if not query:
         return
     if not pl:
         pl = Prolog()
         pl.consult('init.pl')
+    if isinstance(query[0], str):
+        query = [query]
     query_list = []
     var_list = []
     for pred, args in query:
@@ -45,12 +107,8 @@ def query(pl=None, query=None, unique=False, debug=False):
     query_str = ','.join(query_list)
     if debug:
         print(query_str, end="\n\n")
-    results = pl.query(query_str)
-    result_list = []
-    for result in results:
-        result_list += [frozendict(result)]
+    return var_list, pl.query(query_str)
 
-    return set(result_list) if unique else result_list
 
 
 def rdf_find(pl, triples):
@@ -72,6 +130,17 @@ def new_bnode(pl):
 def xsd_type(literal, xsd_t):
     if isinstance(literal, str):
         literal = "'" + literal.replace("'", "\\'") + "'"
+    elif isinstance(literal, int):
+        pass
+    else:
+        raise Exception(f"implement {type(literal)}")
+    return f"{literal}^^'{XSD[xsd_t]}'"
+
+
+def xsd_untype(rdf_literal):
+    print(rdf_literal, type(rdf_literal))
+    if isinstance(rdf_literal, str):
+        return rdf_literal,
     elif isinstance(literal, int):
         pass
     else:

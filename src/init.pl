@@ -8,6 +8,7 @@
 :- use_module(library('semweb/rdf_portray')).%doesn't seem to work with swipl
 
 :- rdf_load('../data/vocab/xcat.rdfs').
+:- rdf_load('../data/vocab/rdfs.rdfs').
 :- rdf_attach_db('../data/pl_store', [access(read_write)]).
 :- rdf_register_prefix(xcat, 'http://xeroxc.at/schema#').
 
@@ -23,6 +24,13 @@ xcat_tracklist_files(Release, FileList) :-
 
 xcat_label(Resource, Label) :-
     rdf(Resource, rdfs:label, Label^^xsd:string).
+
+xcat_print(Resource, Property, Value) :-
+    (   rdf(Resource, xcat:name, Value^^xsd:string);
+        rdf(Resource, xcat:title, Value^^xsd:string)
+    ),
+    rdf(Resource, Property, Value)
+    .
 
 mpd_add_file(FileURN, Result) :-
     rdf(FileURN, xcat:path, Path^^xsd:string),
