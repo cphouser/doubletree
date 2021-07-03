@@ -17,21 +17,23 @@ from rdf_util.pl import (query, xsd_type, rdf_find, new_bnode, LDateTime,
 Content = namedtuple('Content', ['label', 'parent', 'children'])
 
 
-
 class RDF_NodeText(ur.TreeWidget):
-    #def __init__(self, values):
-    #    t = ur.Text(str(values))
-        #w = ur.AttrMap(t, 'body', 'focus')
-    #def selectable(self):
-    #    return True
+    def __init__(self, node):
+        """Override TreeWidget's initializer to collapse nodes"""
+        self._node = node
+        self._innerwidget = None
+        self.is_leaf = not hasattr(node, 'get_first_child')
+        self.expanded = False
+        widget = self.get_indented_widget()
+        #log.debug(super(ur.TreeWidget, self))
+        super(ur.TreeWidget, self).__init__(widget)
 
-    #def keypress(self, size, key):
-    #    return key
+
     def get_display_text(self):
-        return str(list(self.get_node()._w.get_value()))
+        return str(list(self.get_node().get_value()))
 
 
-class RDF_ClassNode(ur.WidgetWrap):
+class RDF_ParentNode(ur.ParentNode):
     """Node class for a tree representing a set of RDF relationships
 
     value_q and child_q are each lists of queries or a single query as
@@ -39,11 +41,8 @@ class RDF_ClassNode(ur.WidgetWrap):
 
 
     """
-    def __init__(self, pl, key, parent=None, value_q=None, child_q=None):#**kwargs?
+    def __init__(self, pl, key, parent, value_q=None, child_q=None):
         key_dict = {"key": key}
-        self.key = key
-
-        #print(child_q, value_q)
         if child_q:
             if isinstance(child_q, list):
                 self.child_query = fill_query(child_q.pop(), key_dict)
@@ -62,39 +61,58 @@ class RDF_ClassNode(ur.WidgetWrap):
 
         self.descendant_queries = (value_q, child_q)
         self.pl = pl
-
-        result = query_gen(pl, self.value_query, debug=True)
+        log.debug(self.value_query)
+        log.debug(value_q)
+        result = query_gen(pl, self.value_query)#, debug=True)
+        #log.debug(list(result))
         value = next(result) if result else None
-        _widget = ur.ParentNode if self.child_query else ur.TreeNode
-        ur.WidgetWrap.__init__(self, _widget(value, parent=parent, key=key))
+        #log.debug(parent)
+        super().__init__(value, parent=parent, key=key)
 
 
     def load_child_keys(self):
         # gonna have to do something complicated to actually sort these
         if self.child_query:
-            return list(res[0] for res in query_gen(self.pl, self.child_query))
+            result = list(res[0] for res in query_gen(self.pl, self.child_query))
+            log.debug(result)
+            return result
 
 
     def load_child_node(self, key):
-        return RDF_ClassNode(pl, key, parent=self.key, *self.descendant_queries)
+        if (grandchild_template := self.descendant_queries[1]):
+            if isinstance(grandchild_template, list):
+                grandchild_template = grandchild_template[-1]
+            grandchild_query = fill_query(grandchild_template, {"key": key})
+            result = query_gen(self.pl, grandchild_query)#, debug=True)
+            if result:
+                return RDF_ParentNode(self.pl, key, self,
+                                      *self.descendant_queries)
+        return RDF_TreeNode(self.pl, key, self,
+                            self.descendant_queries[0])
+
+
+    def load_widget(self):
+        log.debug(self.get_depth())
+        return RDF_NodeText(self)
+
+
+class RDF_TreeNode(ur.TreeNode):
+    def __init__(self, pl, key, parent, value_q=None):
+        key_dict = {"key": key}
+        if value_q:
+            if isinstance(value_q, list):
+                self.value_query = fill_query(value_q.pop(), key_dict)
+            else:
+                self.value_query = fill_query(value_q, key_dict)
+            result = query_gen(pl, self.value_query, debug=True)
+            value = next(result) if result else None
+        else:
+            value = tuple([key])
+        super().__init__(self, value, parent=parent, key=key)
 
 
     def load_widget(self):
         return RDF_NodeText(self)
-
-    def get_widget(self):
-        return RDF_NodeText(self)
-        #return self._w
-
-
-    def get_depth(self):
-        return self._w.get_depth()
-
-    def prev_sibling(self):
-        return self._w.prev_sibling()
-
-    def next_sibling(self):
-        return self._w.next_sibling()
 
 
 class FocusableText(ur.WidgetWrap):
@@ -186,9 +204,9 @@ class Window(ur.WidgetWrap):
         child_queries = ('rdf', ('_v:Subclass', RDFS.subClassOf, '_k:key'))
         value_queries = ('xcat_label', ('_k:key', '_v:Label'))
         topkey = RDFS.Resource
-        self.topnode = RDF_ClassNode(pl, topkey,
-                                     value_q=value_queries,
-                                     child_q=child_queries)
+        self.topnode = RDF_ParentNode(pl, topkey, None,
+                                      value_q=value_queries,
+                                      child_q=child_queries)
         treewindow = ur.TreeListBox(ur.TreeWalker(self.topnode))
         treewindow.offset_rows = 1
 
@@ -205,5 +223,6 @@ def doubletree():
     ur.MainLoop(window, palette, unhandled_input=global_control).run()
 
 if __name__ == "__main__":
-    log.basicConfig(filename='dbltree.log', encoding='utf-8', level=log.DEBUG)
+    log.basicConfig(filename='dbltree.log', encoding='utf-8', level=log.DEBUG,
+                    format='%(levelname)s: %(funcName)s:%(lineno)d: %(message)s')
     doubletree()

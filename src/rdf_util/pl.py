@@ -36,8 +36,8 @@ def query_gen(pl=None, query=None, debug=False, result_type='tuple'):
         if debug:
             print(result)
         if result_type == 'tuple':
-            print([_utf8(result[var]) for var in varlist if var in result])
-            yield (_utf8(result[var]) for var in varlist if var in result)
+            #print([_utf8(result[var]) for var in varlist if var in result])
+            yield tuple(_utf8(result[var]) for var in varlist if var in result)
 
 
 def fill_query(query, key_dict):
