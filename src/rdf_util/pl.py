@@ -29,14 +29,11 @@ def query(pl=None, query=None, unique=False, debug=False):
 
 
 def query_gen(pl=None, query=None, debug=False, result_type='tuple'):
-    #print(query)
     varlist, results = _query(pl=pl, query=query, debug=debug)
-    #print('ffffff', varlist, list(results))
     for result in results:
         if debug:
             print(result)
         if result_type == 'tuple':
-            #print([_utf8(result[var]) for var in varlist if var in result])
             yield tuple(_utf8(result[var]) for var in varlist if var in result)
 
 
@@ -55,18 +52,15 @@ def fill_query(query, key_dict):
         query = [query]
     new_query = []
     for pred, args in query:
-        #print(pred, args)
         for key, value in key_dict.items():
             replaced = '_k:' + key
             if args.count(replaced):
                 index = args.index(replaced)
                 new_query += [(pred,
                     (args[:index] + tuple([value]) + args[index+1:]))]
-            #else:
-                #print(replaced, args.count(replaced))
-            #print(new_query)
     #print(query, new_query, key_dict)
     return tuple(new_query)
+
 
 def _utf8(var):
     if isinstance(var, str):
@@ -78,7 +72,6 @@ def _utf8(var):
 
 
 def _query(pl=None, query=None, debug=False):
-    #print('-----', query)
     if not query:
         return
     if not pl:
@@ -108,7 +101,6 @@ def _query(pl=None, query=None, debug=False):
     if debug:
         print(query_str, end="\n\n")
     return var_list, pl.query(query_str)
-
 
 
 def rdf_find(pl, triples):

@@ -1,36 +1,62 @@
 #!/usr/bin/env python3
 import os
-from collections import namedtuple
 import logging as log
 
 from rdflib.namespace import RDF, RDFS, OWL, XSD
 from pyswip.prolog import Prolog
 import urwid as ur
-import urwidtrees as ur_tree
 
 from palette import palette
-#from rdf_util.namespaces import B3, XCAT
+from rdf_util.namespaces import XCAT
 from rdf_util.pl import (query, xsd_type, rdf_find, new_bnode, LDateTime,
                          TrackList, direct_subclasses, fill_query, query_gen)
 
 
-Content = namedtuple('Content', ['label', 'parent', 'children'])
+tree_views = {
+    'class_hierarchy': {
+        'leaf': RDFS.Class,
+        'root': RDFS.Resource,
+        'value_q': ('xcat_label', ('_k:key', '_v:Label')),
+        'child_q': ('rdf', ('_v:Subclass', RDFS.subClassOf, '_k:key'))
+    }
+}
 
 
 class RDF_NodeText(ur.TreeWidget):
+    unexpanded_icon = ur.wimp.SelectableIcon('\u25B6', 0)
+    expanded_icon = ur.wimp.SelectableIcon('\u25B7', 0)
+    leaf_icon = ur.wimp.SelectableIcon('-', 0)
+
     def __init__(self, node):
         """Override TreeWidget's initializer to collapse nodes"""
         self._node = node
         self._innerwidget = None
-        self.is_leaf = not hasattr(node, 'get_first_child')
+        self.is_leaf = not hasattr(node, 'child_query')
+        log.debug(f'{node.get_key()} {self.is_leaf}')
         self.expanded = False
         widget = self.get_indented_widget()
-        #log.debug(super(ur.TreeWidget, self))
         super(ur.TreeWidget, self).__init__(widget)
 
 
     def get_display_text(self):
         return str(list(self.get_node().get_value()))
+
+
+    def selectable(self):
+        return True
+
+    def get_indented_widget(self):
+        if self.is_leaf:
+            icon = self.leaf_icon
+        elif self.expanded:
+            icon = self.expanded_icon
+        else:
+            icon = self.unexpanded_icon
+
+        widget = ur.Columns([('fixed', 1, icon), self.get_inner_widget()],
+                               dividechars=1)
+        indent_cols = self.get_indent_cols()
+        return ur.Padding(widget, width=('relative', 100), left=indent_cols)
 
 
 class RDF_ParentNode(ur.ParentNode):
@@ -41,7 +67,7 @@ class RDF_ParentNode(ur.ParentNode):
 
 
     """
-    def __init__(self, pl, key, parent, value_q=None, child_q=None):
+    def __init__(self, pl, key, parent, value_q=None, child_q=None, **kwargs):
         key_dict = {"key": key}
         if child_q:
             if isinstance(child_q, list):
@@ -62,20 +88,17 @@ class RDF_ParentNode(ur.ParentNode):
         self.descendant_queries = (value_q, child_q)
         self.pl = pl
         log.debug(self.value_query)
-        log.debug(value_q)
-        result = query_gen(pl, self.value_query)#, debug=True)
-        #log.debug(list(result))
-        value = next(result) if result else None
-        #log.debug(parent)
+        result = query_gen(pl, self.value_query)
+        value = next(result, None)
         super().__init__(value, parent=parent, key=key)
 
 
     def load_child_keys(self):
         # gonna have to do something complicated to actually sort these
         if self.child_query:
-            result = list(res[0] for res in query_gen(self.pl, self.child_query))
-            log.debug(result)
-            return result
+            children = [res[0] for res in query_gen(self.pl, self.child_query)]
+            log.debug(children)
+            return children
 
 
     def load_child_node(self, key):
@@ -83,8 +106,10 @@ class RDF_ParentNode(ur.ParentNode):
             if isinstance(grandchild_template, list):
                 grandchild_template = grandchild_template[-1]
             grandchild_query = fill_query(grandchild_template, {"key": key})
-            result = query_gen(self.pl, grandchild_query)#, debug=True)
-            if result:
+            result = query_gen(self.pl, grandchild_query)
+            if (res := next(result, False)):
+                # TODO: make this log statement non-loadbearing
+                log.debug(list(result))
                 return RDF_ParentNode(self.pl, key, self,
                                       *self.descendant_queries)
         return RDF_TreeNode(self.pl, key, self,
@@ -92,7 +117,6 @@ class RDF_ParentNode(ur.ParentNode):
 
 
     def load_widget(self):
-        log.debug(self.get_depth())
         return RDF_NodeText(self)
 
 
@@ -104,113 +128,33 @@ class RDF_TreeNode(ur.TreeNode):
                 self.value_query = fill_query(value_q.pop(), key_dict)
             else:
                 self.value_query = fill_query(value_q, key_dict)
-            result = query_gen(pl, self.value_query, debug=True)
+            result = query_gen(pl, self.value_query)
             value = next(result) if result else None
         else:
             value = tuple([key])
-        super().__init__(self, value, parent=parent, key=key)
+        super().__init__(value, parent=parent, key=key)
 
 
     def load_widget(self):
         return RDF_NodeText(self)
 
 
-class FocusableText(ur.WidgetWrap):
-    def __init__(self, label):
-        t = ur.Text(label)
-        w = ur.AttrMap(t, 'body', 'focus')
-        ur.WidgetWrap.__init__(self, w)
-
-    def selectable(self):
-        return True
-
-    def keypress(self, size, key):
-        return key
-
-
-class RDF_ClassTree(ur_tree.tree.Tree):
-    root = RDFS.Resource
-
-    def __init__(self, pl_store):
-        self.pl = pl_store
-        # Cache for the tree. Schema is {rdf_uri: (label, parent, children)}
-        self.content = {self.__class__.root: Content('Resource', None, None)}
-
-    def __getitem__(self, rdf_uri):
-        return FocusableText(self.content[rdf_uri].label)
-
-    def _direct_subclasses(self, rdf_uri):
-        """Return the direct subclasses of an RDF class
-
-        Caches results from the prolog store.
-        """
-        if (content := self.content[rdf_uri]).children is None:
-            subclasses = []
-            if len(subclass_tuples := direct_subclasses(self.pl, rdf_uri)):
-                # List of the subclass urls (first tuple entry of each)
-                subclasses = list(list(zip(*subclass_tuples))[0])
-                for subclass, label in subclass_tuples:
-                    self.content[subclass] = Content(label, rdf_uri, None)
-            self.content[rdf_uri] = content._replace(children=subclasses)
-        return self.content[rdf_uri].children
-
-    def _get_siblings(self, rdf_uri):
-        parent = self.content[rdf_uri].parent
-        if parent:
-            return self.content[parent].children
-
-    # Tree API
-    def parent_position(self, rdf_uri):
-        return self.content[rdf_uri].parent
-
-    def first_child_position(self, rdf_uri):
-        children = self._direct_subclasses(rdf_uri)
-        return children[0] if len(children) else None
-
-    def last_child_position(self, rdf_uri):
-        children = self._direct_subclasses(rdf_uri)
-        return children[-1] if len(children) else None
-
-    def next_sibling_position(self, rdf_uri):
-        candidate = None
-        if (siblings := self._get_siblings(rdf_uri)):
-            index = siblings.index(rdf_uri)
-            if index + 1 < len(siblings):
-                candidate = siblings[index + 1]
-        return candidate
-
-    def prev_sibling_position(self, rdf_uri):
-        candidate = None
-        if (siblings := self._get_siblings(rdf_uri)):
-            index = siblings.index(rdf_uri)
-            if index > 0:
-                candidate = siblings[index - 1]
-        return candidate
-
-
 class Window(ur.WidgetWrap):
     def __init__(self, pl):
-        #dtree = RDF_ClassTree(pl)
-        #decorated_tree = ur_tree.decoration.CollapsibleArrowTree(
-        #        dtree, is_collapsed=(lambda x: dtree.parent_position(x)),
-        #        arrow_tip_char=None,
-        #        icon_frame_left_char=None, icon_frame_right_char=None,
-        #        icon_collapsed_char=u'\u25B6', icon_expanded_char=u'\u25B7')
+        classtree_root = RDF_ParentNode(pl, RDFS.Resource, None,
+                                      **tree_views['class_hierarchy'])
+        classtreewin = ur.TreeListBox(ur.TreeWalker(classtree_root))
+        classtreewin.offset_rows = 1
 
-        # stick it into a ur_tree.widgets.TreeBox and use 'body' color
-        # attribute for gaps
-        #tb = ur_tree.widgets.TreeBox(decorated_tree, focus=RDF_ClassTree.root)
-        #display_widget = ur.AttrMap(tb, 'body')
-        child_queries = ('rdf', ('_v:Subclass', RDFS.subClassOf, '_k:key'))
-        value_queries = ('xcat_label', ('_k:key', '_v:Label'))
-        topkey = RDFS.Resource
-        self.topnode = RDF_ParentNode(pl, topkey, None,
-                                      value_q=value_queries,
-                                      child_q=child_queries)
-        treewindow = ur.TreeListBox(ur.TreeWalker(self.topnode))
-        treewindow.offset_rows = 1
+        instancetree_root = RDF_ParentNode(pl, RDFS.Resource, None,
+                                      **tree_views['class_hierarchy'])
+        instancetreewin = ur.TreeListBox(ur.TreeWalker(instancetree_root))
+        instancetreewin.offset_rows = 1
 
-        ur.WidgetWrap.__init__(self, treewindow)
+        pile = ur.Pile([classtreewin, instancetreewin])
+
+        ur.WidgetWrap.__init__(self, pile)
+
 
 def global_control(k):
     if k in ['q', 'Q']: raise ur.ExitMainLoop()
