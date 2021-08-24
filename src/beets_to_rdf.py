@@ -176,7 +176,7 @@ def track_from_beets(pl, beets_lib, data):
                            day=mtime.day, hour=mtime.hour)
 
     ## Add the track
-    query(pl, (('rdf_assert', (track, RDF.type, XCAT.Track)),
+    query(pl, (('rdf_assert', (track, RDF.type, XCAT.Recording)),
                ('rdf_assert', (track, XCAT.file, file_URN)),
                ('rdf_assert', (track, XCAT.title, track_lbl)),
                ('rdf_assert', (track, XCAT.added_during, mtime_term)),
@@ -311,11 +311,7 @@ def rec_load_dir(base_path, lib=None):
                 not_in_db[filename] = dict(_hash=_hash, _mtime=_mtime,
                                            path=fullpath)
         if entry_hashes or subdir_hashes:
-            print(entry_hashes)
-            print(subdir_hashes)
             dir_hash = hashlist_hash(entry_hashes + subdir_hashes)
-            print(dir_hash)
-            print()
             dirpaths[dirpath] = (in_db, not_in_db, subdir_hashes, dir_hash)
 
     return dirpaths

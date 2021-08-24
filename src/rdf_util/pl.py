@@ -73,7 +73,7 @@ def _utf8(var):
 
 def _query(pl=None, query=None, debug=False):
     if not query:
-        return
+        return [], []
     if not pl:
         pl = Prolog()
         pl.consult('init.pl')

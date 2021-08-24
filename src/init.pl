@@ -3,7 +3,8 @@
 :- use_module(library('apply')).
 :- use_module(library('strings')).
 :- use_module(library('semweb/rdf11')).
-:- use_module(library('semweb/rdf11_containers')).
+:- use_module(library('semweb/rdfs')).
+:- use_module(library('semweb/rdf11_containers'), except([rdfs_member/2])).
 :- use_module(library('semweb/rdf_persistency')).
 :- use_module(library('semweb/rdf_portray')).%doesn't seem to work with swipl
 
@@ -27,7 +28,8 @@ xcat_label(Resource, Label) :-
 
 xcat_print(Resource, Property, Value) :-
     (   rdf(Resource, xcat:name, Value^^xsd:string);
-        rdf(Resource, xcat:title, Value^^xsd:string)
+        rdf(Resource, xcat:title, Value^^xsd:string);
+        rdf(Resource, rdfs:label, Value^^xsd:string)
     ),
     rdf(Resource, Property, Value)
     .
