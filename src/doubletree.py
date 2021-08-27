@@ -73,6 +73,17 @@ class RDF_NodeText(ur.TreeWidget):
         return ur.Padding(widget, width=('relative', 100), left=indent_cols)
 
 
+    def keypress(self, size, key):
+        if self.is_leaf:
+            return key
+
+        if key == "tab":
+            self.expanded = not self.expanded
+            self.update_expanded_icon()
+
+        return key
+
+
 class RDF_ParentNode(ur.ParentNode):
     """Node class for a tree representing a set of RDF relationships
 
@@ -157,20 +168,81 @@ class RDF_TreeNode(ur.TreeNode):
         return RDF_NodeText(self)
 
 
+class ClassView(ur.TreeListBox):
+    def __init__(self, window, root):
+        super().__init__(ur.TreeWalker(root))
+        self.window = window
+        # does this matter? (how?)
+        #self.offset_rows = 1
+
+
+    def keypress(self, size, key):
+        if key == "enter":
+            selected = self.focus.get_node().get_key()
+            self.window.load_instances(selected)
+        elif (res := super().keypress(size, key)):
+            return res
+
+    #self.focus.get_node().get_key() @property focus_key
+
+
+class InstanceView(ur.TreeListBox):
+    def __init__(self, window, pl, root=None):
+        if not root:
+            root = ur.TreeNode(None, key="")
+        super().__init__(ur.TreeWalker(root))
+        self.window = window
+        self.pl = pl
+        self.instance_view = 'instance_list'
+        self.root = root
+
+
+    def keypress(self, size, key):
+        if key == "enter":
+            selected = self.focus.get_node().get_key()
+            log.debug(selected)
+            #self.window.load_instances(selected)
+        elif (res := super().keypress(size, key)):
+            return res
+
+
+    def new_tree(self):
+        instance_tree = new_tree(self.pl, self.root, self.instance_view)
+        self.body = ur.TreeWalker(instance_tree)
+
+
+    def new_root(self, root):
+        self.root = root
+        self.new_tree()
+
+
+    def new_view(self, view):
+        self.instance_view = view
+        self.new_tree()
+
+
+class ViewList(ur.ListBox):
+    def __init__(self, window, walker):
+        super().__init__(walker)
+        self.window = window
+
+
+    def keypress(self, size, key):
+        if key == "enter":
+            selected = self.focus.get_text()[0]
+            self.window.load_view(selected)
+        elif (res := super().keypress(size, key)):
+            return res
+
+
 class Window(ur.WidgetWrap):
     def __init__(self, pl):
         class_root = RDF_ParentNode(pl, RDFS.Resource, None,
-                                        **tree_views['class_hierarchy'])
-        classtreewin = ur.TreeListBox(ur.TreeWalker(class_root))
-        classtreewin.offset_rows = 1
-
-        instance_root = ur.TreeNode(None, key="")
-        instancetreewin = ur.TreeListBox(ur.TreeWalker(instance_root))
-        instancetreewin.offset_rows = 1
-
+                                    **tree_views['class_hierarchy'])
+        classtreewin = ClassView(self, class_root)
+        instancetreewin = InstanceView(self, pl)
         instance_views = self.load_instance_views(tree_views.keys())
-        instancelistwin = ur.ListBox(instance_views)
-        instancelistwin.offset_rows = 1
+        instancelistwin = ViewList(self, instance_views)
 
         top_frame = ur.Columns([classtreewin, instancelistwin])
 
@@ -179,9 +251,7 @@ class Window(ur.WidgetWrap):
         self.frames = {
             "class": classtreewin,
             "browse": instancetreewin,
-            "view": instancelistwin,
-            #"ops":
-            #"now":
+            "view": instancelistwin, #"ops": #"now":
         }
         self.pl = pl
         ur.WidgetWrap.__init__(self, pile)
@@ -190,14 +260,7 @@ class Window(ur.WidgetWrap):
     def keypress(self, size, key):
         if (key := self.__super.keypress(size, key)):
             log.debug(f'size:{size}, key:{key},'
-                      f' focus:{self._w._get_focus_position()}')
-            focus_widget, focus_widget_name = self.focus_frame()
-            if focus_widget_name == "class":
-                if key == 'enter':
-                    log.debug(f'sel:{focus_widget.focus.get_node().get_key()}')
-                    sel_class = focus_widget.focus.get_node().get_key()
-                    browse_root = self.new_tree(sel_class, 'instance_list')
-                    self.frames["browse"].body = ur.TreeWalker(browse_root)
+                      f' focus:{self.focus_frame()[1]}')
             return key
 
 
@@ -215,13 +278,22 @@ class Window(ur.WidgetWrap):
         return ur.SimpleFocusListWalker([ur.SelectableIcon(key) for key in keys])
 
 
-    def new_tree(self, selected, view):
-        view_data = tree_views[view]
-        if isinstance(value_q := view_data['value_q'], list):
-            value_q = list(value_q) # shallow copy since ParentNode will pop it
-        if isinstance(child_q := view_data['child_q'], list):
-            child_q = list(child_q)
-        return RDF_ParentNode(self.pl, selected, None, value_q, child_q)
+    def load_instances(self, sel_class):
+        self.frames["browse"].new_root(sel_class)
+
+
+    def load_view(self, sel_view):
+        self.frames["browse"].new_view(sel_view)
+        log.debug(sel_view)
+
+
+def new_tree(pl, selected, view):
+    view_data = tree_views[view]
+    if isinstance(value_q := view_data['value_q'], list):
+        value_q = list(value_q) # shallow copy since ParentNode will pop it
+    if isinstance(child_q := view_data['child_q'], list):
+        child_q = list(child_q)
+    return RDF_ParentNode(pl, selected, None, value_q, child_q)
 
 
 def global_control(k):
