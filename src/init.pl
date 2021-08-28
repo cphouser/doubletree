@@ -26,12 +26,14 @@ xcat_tracklist_files(Release, FileList) :-
 xcat_label(Resource, Label) :-
     rdf(Resource, rdfs:label, Label^^xsd:string).
 
-xcat_print(Resource, Property, Value) :-
+xcat_print(Resource, Class, Value) :-
     (   rdf(Resource, xcat:name, Value^^xsd:string);
         rdf(Resource, xcat:title, Value^^xsd:string);
         rdf(Resource, rdfs:label, Value^^xsd:string)
     ),
-    rdf(Resource, Property, Value)
+    %rdf(Resource, Property, Value)
+    rdf(Resource, rdf:type, ClassURI),
+    xcat_label(ClassURI, Class)
     .
 
 mpd_add_file(FileURN, Result) :-

@@ -24,7 +24,7 @@ tree_views = {
         #'leaf': RDFS.Class,
         #'root': RDFS.Resource,
         'value_q': [
-            (('xcat_print', ('_k:key', '_v:Property', '_v:Print')),
+            (('xcat_print', ('_k:key', '_v:Class', '_v:Print')),
              ('rdf_equal', ('_k:key', '_v:URI'))),
             ('xcat_label', ('_k:key', '_v:Label')),
         ], 'child_q': [
@@ -37,21 +37,23 @@ class RDF_NodeText(ur.TreeWidget):
     expanded_icon = ur.wimp.SelectableIcon('\u25B7', 0)
     leaf_icon = ur.wimp.SelectableIcon('-', 0)
 
-    def __init__(self, node):
+    def __init__(self, node, widths):
         """Override TreeWidget's initializer to collapse nodes"""
         self._node = node
         self._innerwidget = None
         self.is_leaf = not hasattr(node, 'child_query')
-        log.debug(f'{node.get_key()} {self.is_leaf}')
         self.expanded = False
+        self.widths = widths
         widget = self.get_indented_widget()
         super(ur.TreeWidget, self).__init__(widget)
 
 
     def get_display_text(self):
         if (value := self.get_node().get_value()):
-            return str(list(value))
+            value_strs = [e.ljust(self.widths[i]) for i, e in enumerate(value)]
+            return ' | '.join(value_strs)
         elif (key := self.get_node().get_key()):
+            # Value query failed
             return str(key)
 
 
@@ -68,29 +70,50 @@ class RDF_NodeText(ur.TreeWidget):
             icon = self.unexpanded_icon
 
         widget = ur.Columns([('fixed', 1, icon), self.get_inner_widget()],
-                               dividechars=1)
+                            dividechars=1)
         indent_cols = self.get_indent_cols()
         return ur.Padding(widget, width=('relative', 100), left=indent_cols)
 
 
     def keypress(self, size, key):
-        if self.is_leaf:
+        if key == "tab":
+            if not self.is_leaf:
+                self.expanded = not self.expanded
+                self.update_expanded_icon()
+        else:
             return key
 
-        if key == "tab":
-            self.expanded = not self.expanded
-            self.update_expanded_icon()
 
-        return key
+class RDF_TreeNode(ur.TreeNode):
+    def __init__(self, pl, key, parent, value_q=None):
+        key_dict = {"key": key}
+        if value_q:
+            if isinstance(value_q, list):
+                value_q = list(value_q)
+                self.value_query = fill_query(value_q.pop(), key_dict)
+            else:
+                self.value_query = fill_query(value_q, key_dict)
+            result = query_gen(pl, self.value_query)
+            value = next(result, None)
+        else:
+            value = tuple([key])
+        self.widths = [len(val_elem) for val_elem in value] if value else [0]
+        super().__init__(value, parent=parent, key=key)
 
 
-class RDF_ParentNode(ur.ParentNode):
+    def load_widget(self):
+        if (parent := self.get_parent()):
+            col_widths = parent.child_widths()
+        else:
+            col_widths = [0]
+        return RDF_NodeText(self, col_widths)
+
+
+class RDF_ParentNode(ur.ParentNode, RDF_TreeNode):
     """Node class for a tree representing a set of RDF relationships
 
     value_q and child_q are each lists of queries or a single query as
     defined in rdf_util.pl.query.
-
-
     """
     def __init__(self, pl, key, parent, value_q=None, child_q=None, **kwargs):
         key_dict = {"key": key}
@@ -117,6 +140,7 @@ class RDF_ParentNode(ur.ParentNode):
         log.debug(f"{key}: {self.value_query}")
         result = query_gen(pl, self.value_query)
         value = next(result, None)
+        self.widths = [len(val_elem) for val_elem in value]
         super().__init__(value, parent=parent, key=key)
 
 
@@ -137,35 +161,22 @@ class RDF_ParentNode(ur.ParentNode):
             grandchild_query = fill_query(grandchild_template, {"key": key})
             result = query_gen(self.pl, grandchild_query)
             if (res := next(result, False)):
-                # TODO: make this log statement non-loadbearing
-                log.debug(list(result))
+                # better way to exhaust this iterator? (the other func)
+                list(result)
                 return RDF_ParentNode(self.pl, key, self,
                                       *self.descendant_queries)
         return RDF_TreeNode(self.pl, key, self, self.descendant_queries[0])
 
 
-    def load_widget(self):
-        return RDF_NodeText(self)
-
-
-class RDF_TreeNode(ur.TreeNode):
-    def __init__(self, pl, key, parent, value_q=None):
-        key_dict = {"key": key}
-        if value_q:
-            if isinstance(value_q, list):
-                value_q = list(value_q)
-                self.value_query = fill_query(value_q.pop(), key_dict)
-            else:
-                self.value_query = fill_query(value_q, key_dict)
-            result = query_gen(pl, self.value_query)
-            value = next(result, None)
-        else:
-            value = tuple([key])
-        super().__init__(value, parent=parent, key=key)
-
-
-    def load_widget(self):
-        return RDF_NodeText(self)
+    def child_widths(self):
+        widths = [0]
+        for key in self.load_child_keys():
+            if (value := self.get_child_node(key).get_value()):
+                while len(widths) < len(value):
+                    widths.append(0)
+                for idx, val_elem in enumerate(value):
+                    widths[idx] = max(widths[idx], len(val_elem))
+        return widths
 
 
 class ClassView(ur.TreeListBox):
@@ -175,6 +186,7 @@ class ClassView(ur.TreeListBox):
         # does this matter? (how?)
         #self.offset_rows = 1
 
+    #self.focus.get_node().get_key() @property focus_key
 
     def keypress(self, size, key):
         if key == "enter":
@@ -182,8 +194,6 @@ class ClassView(ur.TreeListBox):
             self.window.load_instances(selected)
         elif (res := super().keypress(size, key)):
             return res
-
-    #self.focus.get_node().get_key() @property focus_key
 
 
 class InstanceView(ur.TreeListBox):
@@ -201,7 +211,6 @@ class InstanceView(ur.TreeListBox):
         if key == "enter":
             selected = self.focus.get_node().get_key()
             log.debug(selected)
-            #self.window.load_instances(selected)
         elif (res := super().keypress(size, key)):
             return res
 
@@ -245,8 +254,9 @@ class Window(ur.WidgetWrap):
         instancelistwin = ViewList(self, instance_views)
 
         top_frame = ur.Columns([classtreewin, instancelistwin])
+        bottom_frame = ur.Columns([instancetreewin])
 
-        pile = ur.Pile([top_frame, instancetreewin])
+        pile = ur.Pile([top_frame, bottom_frame])
 
         self.frames = {
             "class": classtreewin,
@@ -259,12 +269,32 @@ class Window(ur.WidgetWrap):
 
     def keypress(self, size, key):
         if (key := self.__super.keypress(size, key)):
-            log.debug(f'size:{size}, key:{key},'
-                      f' focus:{self.focus_frame()[1]}')
+            key_list = key.split(' ')
+            if key_list[0] == 'shift':
+                if key_list[1] in ['up', 'down', 'left', 'right']:
+                    self.focus_frame(key_list[1])
+                    return None
+            log.debug(f'size:{size}, key:{key_list},'
+                      f' focus:{self.active_frame()[1]}')
             return key
 
 
-    def focus_frame(self):
+    def focus_frame(self, direction):
+        if direction == "down":
+            if self._w.focus_position == 0:
+                self._w.focus_position = 1
+        elif direction == "up":
+            if self._w.focus_position == 1:
+                self._w.focus_position = 0
+        elif direction == "left":
+            if self._w.focus.focus_position > 0:
+                self._w.focus.focus_position -= 1
+        else:
+            if self._w.focus.focus_position < (len(self._w.focus.contents) - 1):
+                self._w.focus.focus_position += 1
+
+
+    def active_frame(self):
         if self._w.focus_position == 0:
             if self._w.focus.focus_position == 0:
                 return self.frames["class"], "class"
