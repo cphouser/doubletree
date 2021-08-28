@@ -31,7 +31,6 @@ xcat_print(Resource, Class, Value) :-
         rdf(Resource, xcat:title, Value^^xsd:string);
         rdf(Resource, rdfs:label, Value^^xsd:string)
     ),
-    %rdf(Resource, Property, Value)
     rdf(Resource, rdf:type, ClassURI),
     xcat_label(ClassURI, Class)
     .

@@ -12,7 +12,8 @@ from palette import palette
 from log_util import LogFormatter
 from rdf_util.namespaces import XCAT
 from rdf_util.pl import (query, xsd_type, rdf_find, new_bnode, LDateTime,
-                         TrackList, direct_subclasses, fill_query, query_gen)
+                         TrackList, direct_subclasses, fill_query, query_gen,
+                         all_classes)
 
 class_hierarchy = {
     'value_q': ('xcat_label', ('_k:key', '_v:Label')),
@@ -21,13 +22,27 @@ class_hierarchy = {
 
 tree_views = {
     'instance_list': {
-        #'leaf': RDFS.Class,
-        #'root': RDFS.Resource,
+        'leaf': RDFS.Class,
+        'root': RDFS.Resource,
         'value_q': [
             (('xcat_print', ('_k:key', '_v:Class', '_v:Print')),
              ('rdf_equal', ('_k:key', '_v:URI'))),
             ('xcat_label', ('_k:key', '_v:Label')),
         ], 'child_q': [
+            ('rdfs_individual_of', ('_v:Instance', '_k:key'))
+        ]},
+    'artist_album': {
+        'leaf': XCAT.Release,
+        'root': XCAT.Artist,
+        'value_q': [
+            ('xcat_print', ('_k:key', '_', '_v:Print')),
+            #(('xcat_print', ('_k:key', '_', '_v:Print')),
+            # ('rdf', ('_k:key', XCAT.published_during, '_v:Date'))),
+            ('xcat_print', ('_k:key', '_', '_v:Print')),
+            ('xcat_label', ('_k:key', '_v:Label')),
+        ], 'child_q': [
+            (('rdf', ('_k:key', XCAT.made, '_v:Album')),
+             ('rdfs_individual_of', ('_v:Album', XCAT.Release))),
             ('rdfs_individual_of', ('_v:Instance', '_k:key'))
         ]},
 }
@@ -97,6 +112,7 @@ class RDF_TreeNode(ur.TreeNode):
             value = next(result, None)
         else:
             value = tuple([key])
+        log.debug(f"{key}: {self.value_query}")
         self.widths = [len(val_elem) for val_elem in value] if value else [0]
         super().__init__(value, parent=parent, key=key)
 
@@ -119,13 +135,14 @@ class RDF_ParentNode(ur.ParentNode, RDF_TreeNode):
         key_dict = {"key": key}
         if child_q:
             if isinstance(child_q, list):
+                #log.debug(child_q)
                 child_q = list(child_q)
+                #log.debug(child_q)
                 self.child_query = fill_query(child_q.pop(), key_dict)
             else:
                 self.child_query = fill_query(child_q, key_dict)
         else:
             self.child_query = None
-
         if value_q:
             if isinstance(value_q, list):
                 value_q = list(value_q)
@@ -137,7 +154,7 @@ class RDF_ParentNode(ur.ParentNode, RDF_TreeNode):
 
         self.descendant_queries = (value_q, child_q)
         self.pl = pl
-        log.debug(f"{key}: {self.value_query}")
+        #log.debug(f"{key}: {self.value_query}")
         result = query_gen(pl, self.value_query)
         value = next(result, None)
         self.widths = [len(val_elem) for val_elem in value]
@@ -147,8 +164,9 @@ class RDF_ParentNode(ur.ParentNode, RDF_TreeNode):
     def load_child_keys(self):
         # gonna have to do something complicated to actually sort these
         if self.child_query:
+            log.debug(self.child_query)
             children = [res[0] for res in query_gen(self.pl, self.child_query)]
-            log.debug(children)
+            #log.debug(children)
             return children
         else:
             return []
@@ -182,6 +200,7 @@ class RDF_ParentNode(ur.ParentNode, RDF_TreeNode):
 class ClassView(ur.TreeListBox):
     def __init__(self, window, root):
         super().__init__(ur.TreeWalker(root))
+        root.get_widget().expanded = True
         self.window = window
         # does this matter? (how?)
         #self.offset_rows = 1
@@ -217,6 +236,7 @@ class InstanceView(ur.TreeListBox):
 
     def new_tree(self):
         instance_tree = new_tree(self.pl, self.root, self.instance_view)
+        instance_tree.get_widget().expanded = True
         self.body = ur.TreeWalker(instance_tree)
 
 
@@ -231,8 +251,11 @@ class InstanceView(ur.TreeListBox):
 
 
 class ViewList(ur.ListBox):
-    def __init__(self, window, walker):
+    def __init__(self, window, pl, root_class=RDFS.Resource):
+        walker = ur.SimpleFocusListWalker([])
         super().__init__(walker)
+        self.pl = pl
+        self.load_views(root_class)
         self.window = window
 
 
@@ -244,6 +267,21 @@ class ViewList(ur.ListBox):
             return res
 
 
+    def load_views(self, leaf_class):
+        #log.debug(leaf_class)
+        classes = all_classes(self.pl, leaf_class)
+        log.debug(classes)
+        views = []
+        for rdfs_class in classes:
+            for view_name, view in tree_views.items():
+                if str(view['root']) == rdfs_class:
+                    views.append(view_name)
+        #log.debug(views)
+        self.body = ur.SimpleFocusListWalker(
+            [ur.SelectableIcon(view) for view in views]
+        )
+
+
 class Window(ur.WidgetWrap):
     def __init__(self, pl):
         class_root = RDF_ParentNode(pl, RDFS.Resource, None, **class_hierarchy)
@@ -251,15 +289,14 @@ class Window(ur.WidgetWrap):
 
         instancetreewin = InstanceView(self, pl)
 
-        instance_views = self.load_instance_views(tree_views.keys())
-        instancelistwin = ViewList(self, instance_views)
+        instancelistwin = ViewList(self, pl)
 
-        operationgrid = None
+        operationgrid = ur.WidgetPlaceholder(ur.SolidFill('.'))
 
-        operationview = None
+        operationview = ur.WidgetPlaceholder(ur.SolidFill('.'))
 
-        top_frame = ur.Columns([classtreewin, instancelistwin])
-        bottom_frame = ur.Columns([instancetreewin])
+        top_frame = ur.Columns([classtreewin, instancelistwin, operationgrid])
+        bottom_frame = ur.Columns([instancetreewin, operationview])
         pile = ur.Pile([top_frame, bottom_frame])
 
         self.frames = {
@@ -274,14 +311,14 @@ class Window(ur.WidgetWrap):
 
 
     def keypress(self, size, key):
-        if key == 'esc': raise ur.ExitMainLoop()
+        if key in ['esc', 'q', 'Q']: raise ur.ExitMainLoop()
         if (key := self.__super.keypress(size, key)):
             key_list = key.split(' ')
             if key_list[0] == 'shift':
                 if key_list[1] in ['up', 'down', 'left', 'right']:
                     self.focus_frame(key_list[1])
                     return None
-            log.debug(f'size:{size}, key:{key_list},'
+            log.info(f'size:{size}, key:{key_list},'
                       f' focus:{self.active_frame()[1]}')
 
 
@@ -310,12 +347,9 @@ class Window(ur.WidgetWrap):
             return self.frames["browse"], "browse"
 
 
-    def load_instance_views(self, keys):
-        return ur.SimpleFocusListWalker([ur.SelectableIcon(key) for key in keys])
-
-
     def load_instances(self, sel_class):
         self.frames["browse"].new_root(sel_class)
+        self.frames["view"].load_views(sel_class)
 
 
     def load_view(self, sel_view):
@@ -348,7 +382,7 @@ if __name__ == "__main__":
     log = logging.getLogger('doubletree')
     log.setLevel(logging.DEBUG)
     log_handler = logging.FileHandler('dbltree.log', encoding='utf-8')
-    log_handler.setLevel(logging.INFO)
+    log_handler.setLevel(logging.DEBUG)
 
     log_handler.setFormatter(LogFormatter())
     log.addHandler(log_handler)

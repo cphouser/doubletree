@@ -3,8 +3,22 @@
 from pyswip.prolog import Prolog
 from rdf_util.namespaces import XCAT
 from rdflib.namespace import RDF, RDFS, OWL, XSD
+#from rdflib import URIRef
 
 from frozendict import frozendict
+
+def all_classes(pl, subject_class):
+    classes = [str(subject_class)]
+    while subject_class:
+        superclass = next(query_gen(pl,
+            ('rdf', (subject_class, RDFS.subClassOf, '_v:Superclass'))
+                                    ), None)
+        if superclass:
+            superclass = superclass[0]
+            classes += [superclass]
+        subject_class = superclass
+    return classes
+
 
 def query(pl=None, query=None, unique=False, debug=False):
     """
@@ -37,7 +51,7 @@ def query_gen(pl=None, query=None, debug=False, result_type='tuple'):
             yield tuple(_utf8(result[var]) for var in varlist if var in result)
 
 
-def fill_query(query, key_dict):
+def fill_query(query, key_dict, log=None):
     """
     Returns a query which can be passed to query(). The query passed
     to this function fits that form except may include variables
@@ -48,16 +62,20 @@ def fill_query(query, key_dict):
                          {'Resource': XCAT.Artist})
     will return ('rdf', (XCAT.Artist, RDF.type, '_v:Class'))
     """
+    if log:
+        log.debug(query)
     if isinstance(query[0], str):
         query = [query]
     new_query = []
     for pred, args in query:
+        new_statement = (pred, args)
         for key, value in key_dict.items():
             replaced = '_k:' + key
             if args.count(replaced):
                 index = args.index(replaced)
-                new_query += [(pred,
-                    (args[:index] + tuple([value]) + args[index+1:]))]
+                new_statement = (pred,
+                    (args[:index] + tuple([value]) + args[index+1:]))
+        new_query += [new_statement]
     #print(query, new_query, key_dict)
     return tuple(new_query)
 
@@ -93,6 +111,8 @@ def _query(pl=None, query=None, debug=False):
                 arg_list += [arg]
             elif (isinstance(arg, list)):
                 arg_list += [f"{arg}"]
+            elif arg == '_':
+                arg_list += [arg]
             else:
                 arg_list += [f"'{arg}'"]
         arg_str = ','.join(arg_list)
