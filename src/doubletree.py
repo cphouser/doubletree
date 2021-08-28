@@ -14,12 +14,12 @@ from rdf_util.namespaces import XCAT
 from rdf_util.pl import (query, xsd_type, rdf_find, new_bnode, LDateTime,
                          TrackList, direct_subclasses, fill_query, query_gen)
 
+class_hierarchy = {
+    'value_q': ('xcat_label', ('_k:key', '_v:Label')),
+    'child_q': ('rdf', ('_v:Subclass', RDFS.subClassOf, '_k:key'))
+}
+
 tree_views = {
-    'class_hierarchy': {
-        #'leaf': RDFS.Class,
-        #'root': RDFS.Resource,
-        'value_q': ('xcat_label', ('_k:key', '_v:Label')),
-        'child_q': ('rdf', ('_v:Subclass', RDFS.subClassOf, '_k:key'))},
     'instance_list': {
         #'leaf': RDFS.Class,
         #'root': RDFS.Resource,
@@ -53,7 +53,7 @@ class RDF_NodeText(ur.TreeWidget):
             value_strs = [e.ljust(self.widths[i]) for i, e in enumerate(value)]
             return ' | '.join(value_strs)
         elif (key := self.get_node().get_key()):
-            # Value query failed
+            log.warning(f"value query failed: {key}")
             return str(key)
 
 
@@ -170,7 +170,7 @@ class RDF_ParentNode(ur.ParentNode, RDF_TreeNode):
 
     def child_widths(self):
         widths = [0]
-        for key in self.load_child_keys():
+        for key in self.get_child_keys():
             if (value := self.get_child_node(key).get_value()):
                 while len(widths) < len(value):
                     widths.append(0)
@@ -246,28 +246,35 @@ class ViewList(ur.ListBox):
 
 class Window(ur.WidgetWrap):
     def __init__(self, pl):
-        class_root = RDF_ParentNode(pl, RDFS.Resource, None,
-                                    **tree_views['class_hierarchy'])
+        class_root = RDF_ParentNode(pl, RDFS.Resource, None, **class_hierarchy)
         classtreewin = ClassView(self, class_root)
+
         instancetreewin = InstanceView(self, pl)
+
         instance_views = self.load_instance_views(tree_views.keys())
         instancelistwin = ViewList(self, instance_views)
 
+        operationgrid = None
+
+        operationview = None
+
         top_frame = ur.Columns([classtreewin, instancelistwin])
         bottom_frame = ur.Columns([instancetreewin])
-
         pile = ur.Pile([top_frame, bottom_frame])
 
         self.frames = {
             "class": classtreewin,
             "browse": instancetreewin,
-            "view": instancelistwin, #"ops": #"now":
+            "view": instancelistwin,
+            "ops": operationgrid,
+            "now": operationview
         }
         self.pl = pl
         ur.WidgetWrap.__init__(self, pile)
 
 
     def keypress(self, size, key):
+        if key == 'esc': raise ur.ExitMainLoop()
         if (key := self.__super.keypress(size, key)):
             key_list = key.split(' ')
             if key_list[0] == 'shift':
@@ -276,7 +283,6 @@ class Window(ur.WidgetWrap):
                     return None
             log.debug(f'size:{size}, key:{key_list},'
                       f' focus:{self.active_frame()[1]}')
-            return key
 
 
     def focus_frame(self, direction):
@@ -326,8 +332,8 @@ def new_tree(pl, selected, view):
     return RDF_ParentNode(pl, selected, None, value_q, child_q)
 
 
-def global_control(k):
-    if k in ['q', 'Q']: raise ur.ExitMainLoop()
+def unhandled_input(k):
+    log.warning(k)
 
 
 def doubletree():
@@ -335,17 +341,18 @@ def doubletree():
     pl.consult('init.pl')
 
     window = Window(pl)
-    ur.MainLoop(window, palette, unhandled_input=global_control).run()
+    ur.MainLoop(window, palette, unhandled_input=unhandled_input).run()
 
 
 if __name__ == "__main__":
     log = logging.getLogger('doubletree')
     log.setLevel(logging.DEBUG)
     log_handler = logging.FileHandler('dbltree.log', encoding='utf-8')
-    log_handler.setLevel(logging.DEBUG)
+    log_handler.setLevel(logging.INFO)
+
     log_handler.setFormatter(LogFormatter())
     log.addHandler(log_handler)
 
-    log.debug(f"\n\t\tDoubletree {datetime.now()}")
+    log.info(f"\n\t\tDoubletree {datetime.now()}")
 
     doubletree()
