@@ -1,0 +1,8 @@
+[Unit]
+Description=Save MPD Songs Played data to Prolog RDF Store
+
+[Service]
+ExecStart=/home/xeroxcat/projects/doubletree/src/mpd_monitor/mpd_monitor.py
+Environment=PYTHONUNBUFFERED=1
+Environment=PYTHONPATH=/home/xeroxcat/projects/doubletree/src
+WorkingDirectory=/home/xeroxcat/projects/doubletree/src
