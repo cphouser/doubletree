@@ -2,18 +2,22 @@
 
 import os
 import logging
+import functools
 from datetime import datetime
 
 from rdflib.namespace import RDF, RDFS, OWL, XSD
 from pyswip.prolog import Prolog
 import urwid as ur
 
+import mpd_util
 from palette import palette
 from log_util import LogFormatter
+from mpd_player import MpdPlayer
+
 from rdf_util.namespaces import XCAT
-from rdf_util.pl import (query, xsd_type, rdf_find, new_bnode, LDateTime,
-                         TrackList, direct_subclasses, fill_query, query_gen,
-                         all_classes)
+from rdf_util.pl import (query, mixed_query, xsd_type, rdf_find, new_bnode,
+                         LDateTime, TrackList, direct_subclasses, fill_query,
+                         query_gen, all_classes)
 
 class_hierarchy = {
     'value_q': ('xcat_label', ('_k:key', '_v:Label')),
@@ -31,21 +35,47 @@ tree_views = {
         ], 'child_q': [
             ('rdfs_individual_of', ('_v:Instance', '_k:key'))
         ]},
-    'artist_album': {
+    'artist_releases': {
         'leaf': XCAT.Release,
         'root': XCAT.Artist,
         'value_q': [
             ('xcat_print', ('_k:key', '_', '_v:Print')),
-            #(('xcat_print', ('_k:key', '_', '_v:Print')),
-            # ('rdf', ('_k:key', XCAT.published_during, '_v:Date'))),
             ('xcat_print', ('_k:key', '_', '_v:Print')),
             ('xcat_label', ('_k:key', '_v:Label')),
         ], 'child_q': [
             (('rdf', ('_k:key', XCAT.made, '_v:Album')),
              ('rdfs_individual_of', ('_v:Album', XCAT.Release))),
+            ('rdfs_individual_of', ('_v:Instance', '_k:key')#),
+             #('xcat_has_releases', ['_v:Instance'])
+             ),
+        ]},
+    'artist_release_tracks': {
+        'leaf': XCAT.Recording,
+        'root': XCAT.Artist,
+        'value_q': [
+            ('xcat_print', ('_k:key', '_', '_v:Print')),
+            (('xcat_print', ('_k:key', '_', '_v:Print')),
+             ('rdf', ('_k:key', XCAT.published_during, '_v:Date'))),
+            ('xcat_print', ('_k:key', '_', '_v:Print')),
+            ('xcat_label', ('_k:key', '_v:Label')),
+        ], 'child_q': [
+            ('xcat_tracklist', ('_k:key', '_v:List' )),
+            (('rdf', ('_k:key', XCAT.made, '_v:Album')),
+             ('rdfs_individual_of', ('_v:Album', XCAT.Release))),
             ('rdfs_individual_of', ('_v:Instance', '_k:key'))
         ]},
 }
+
+instance_ops = {
+    XCAT.Recording: {
+        'enter': (('xcat_filepath', ('_k:key', '_v:Path')),
+                  mpd_util.add_to_list),
+        },
+    XCAT.Release: {
+        'enter': (('xcat_tracklist_filepaths', ('_k:key', '_v:Paths')),
+                  mpd_util.add_to_list),
+        }
+    }
 
 class RDF_NodeText(ur.TreeWidget):
     unexpanded_icon = ur.wimp.SelectableIcon('\u25B6', 0)
@@ -57,11 +87,25 @@ class RDF_NodeText(ur.TreeWidget):
         self._node = node
         self._innerwidget = None
         self.is_leaf = not hasattr(node, 'child_query')
-        self.expanded = False
+        self._expanded = False
         self.widths = widths
         widget = self.get_indented_widget()
         super(ur.TreeWidget, self).__init__(widget)
 
+
+    @property
+    def expanded(self):
+        return self._expanded
+
+    @expanded.setter
+    def expanded(self, val):
+        self._expanded = val
+        if self._expanded:
+            self.get_node().resort()
+            #if (parent := self.get_node().get_parent()):
+            #    parent.resort()
+
+        
 
     def get_display_text(self):
         if (value := self.get_node().get_value()):
@@ -108,7 +152,7 @@ class RDF_TreeNode(ur.TreeNode):
                 self.value_query = fill_query(value_q.pop(), key_dict)
             else:
                 self.value_query = fill_query(value_q, key_dict)
-            result = query_gen(pl, self.value_query)
+            result = query_gen(pl, self.value_query, log=log)
             value = next(result, None)
         else:
             value = tuple([key])
@@ -122,6 +166,7 @@ class RDF_TreeNode(ur.TreeNode):
             col_widths = parent.child_widths()
         else:
             col_widths = [0]
+        log.debug(self.get_value())
         return RDF_NodeText(self, col_widths)
 
 
@@ -135,10 +180,8 @@ class RDF_ParentNode(ur.ParentNode, RDF_TreeNode):
         key_dict = {"key": key}
         if child_q:
             if isinstance(child_q, list):
-                #log.debug(child_q)
                 child_q = list(child_q)
-                #log.debug(child_q)
-                self.child_query = fill_query(child_q.pop(), key_dict)
+                self.child_query = fill_query(child_q.pop(), key_dict, log=log)
             else:
                 self.child_query = fill_query(child_q, key_dict)
         else:
@@ -155,21 +198,36 @@ class RDF_ParentNode(ur.ParentNode, RDF_TreeNode):
         self.descendant_queries = (value_q, child_q)
         self.pl = pl
         #log.debug(f"{key}: {self.value_query}")
-        result = query_gen(pl, self.value_query)
+        result = query_gen(pl, self.value_query, log=log)
         value = next(result, None)
-        self.widths = [len(val_elem) for val_elem in value]
+        self.widths = [len(val_elem) for val_elem in value] if value else [0]
+        self.sorted = False
+        self.leaf = kwargs.get('leaf')
         super().__init__(value, parent=parent, key=key)
 
 
     def load_child_keys(self):
         # gonna have to do something complicated to actually sort these
-        if self.child_query:
-            log.debug(self.child_query)
-            children = [res[0] for res in query_gen(self.pl, self.child_query)]
+        children = []
+        if self._child_keys and len(self._children) == len(self._child_keys):
+            children = self.get_child_keys()
+            children.sort(key=lambda k: self.get_child_node(k).get_value()
+                          if self.get_child_node(k).get_value() else k)
+
+        elif self.child_query:
+            #log.debug(self.child_query)
+            children = [res[0] for res in query_gen(self.pl, self.child_query,
+                                                    log=log)]
             #log.debug(children)
-            return children
-        else:
-            return []
+        return children
+
+
+    def resort(self):
+        if self._child_keys and len(self._children) == len(self._child_keys):
+            for key in self.get_child_keys(reload=True):
+                child = self.get_child_node(key)
+                if isinstance(child, RDF_ParentNode):
+                    child.resort()
 
 
     def load_child_node(self, key):
@@ -177,12 +235,15 @@ class RDF_ParentNode(ur.ParentNode, RDF_TreeNode):
             if isinstance(grandchild_template, list):
                 grandchild_template = grandchild_template[-1]
             grandchild_query = fill_query(grandchild_template, {"key": key})
-            result = query_gen(self.pl, grandchild_query)
+            result = query_gen(self.pl, grandchild_query, log=log)
             if (res := next(result, False)):
                 # better way to exhaust this iterator? (the other func)
                 list(result)
                 return RDF_ParentNode(self.pl, key, self,
-                                      *self.descendant_queries)
+                                      *self.descendant_queries, leaf=self.leaf)
+        #elif self.leaf and not (
+        #        query(pl, ('rdfs_individual_of', (key, self.leaf)))):
+        #    return
         return RDF_TreeNode(self.pl, key, self, self.descendant_queries[0])
 
 
@@ -194,6 +255,7 @@ class RDF_ParentNode(ur.ParentNode, RDF_TreeNode):
                     widths.append(0)
                 for idx, val_elem in enumerate(value):
                     widths[idx] = max(widths[idx], len(val_elem))
+        log.debug(widths)
         return widths
 
 
@@ -216,20 +278,25 @@ class ClassView(ur.TreeListBox):
 
 
 class InstanceView(ur.TreeListBox):
-    def __init__(self, window, pl, root=None):
+    def __init__(self, window, pl, root=None, mpd_client=None, mpd_kwargs=None):
         if not root:
             root = ur.TreeNode(None, key="")
         super().__init__(ur.TreeWalker(root))
         self.window = window
         self.pl = pl
+
         self.instance_view = 'instance_list'
         self.root = root
 
 
     def keypress(self, size, key):
-        if key == "enter":
+        if (operation := instance_ops.get(
+                tree_views[self.instance_view]['leaf'], {}).get(key)):
             selected = self.focus.get_node().get_key()
-            log.debug(selected)
+            key_dict = {"key": selected}
+            log.debug(f"{selected} {key} {operation}")
+            mixed_query(self.pl, fill_query(operation, key_dict))
+            self.window.frames['now'].reload()
         elif (res := super().keypress(size, key)):
             return res
 
@@ -283,7 +350,7 @@ class ViewList(ur.ListBox):
 
 
 class Window(ur.WidgetWrap):
-    def __init__(self, pl):
+    def __init__(self, pl, update_rate=5):
         class_root = RDF_ParentNode(pl, RDFS.Resource, None, **class_hierarchy)
         classtreewin = ClassView(self, class_root)
 
@@ -293,12 +360,13 @@ class Window(ur.WidgetWrap):
 
         operationgrid = ur.WidgetPlaceholder(ur.SolidFill('.'))
 
-        operationview = ur.WidgetPlaceholder(ur.SolidFill('.'))
+        operationview = MpdPlayer(self.format_track, log=log)
 
         top_frame = ur.Columns([classtreewin, instancelistwin, operationgrid])
         bottom_frame = ur.Columns([instancetreewin, operationview])
         pile = ur.Pile([top_frame, bottom_frame])
 
+        self.update_rate = update_rate
         self.frames = {
             "class": classtreewin,
             "browse": instancetreewin,
@@ -357,6 +425,21 @@ class Window(ur.WidgetWrap):
         log.debug(sel_view)
 
 
+    def format_track(self, dictlike):
+        return {
+            'key': dictlike.get('id', ""),
+            'track': dictlike.get('title', ""),
+            'artist': dictlike.get('artist', ""),
+            'album': dictlike.get('album', ""),
+            'year': dictlike.get('date', "")
+        }
+
+
+    def update_dynamic(self, main_loop, *args):
+        self.frames['now'].reload_screen()
+        main_loop.set_alarm_in(self.update_rate, self.update_dynamic)
+
+
 def new_tree(pl, selected, view):
     view_data = tree_views[view]
     if isinstance(value_q := view_data['value_q'], list):
@@ -374,8 +457,10 @@ def doubletree():
     pl = Prolog()
     pl.consult('init.pl')
 
-    window = Window(pl)
-    ur.MainLoop(window, palette, unhandled_input=unhandled_input).run()
+    window = Window(pl, update_rate=1)
+    event_loop = ur.MainLoop(window, palette, unhandled_input=unhandled_input)
+    event_loop.set_alarm_in(1, window.update_dynamic)
+    event_loop.run()
 
 
 if __name__ == "__main__":

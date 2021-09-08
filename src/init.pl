@@ -7,20 +7,32 @@
 :- use_module(library('semweb/rdf11_containers'), except([rdfs_member/2])).
 :- use_module(library('semweb/rdf_persistency')).
 :- use_module(library('semweb/rdf_portray')).%doesn't seem to work with swipl
+:- use_module(library('solution_sequences')).
 
 :- rdf_load('../data/vocab/xcat.rdfs').
 :- rdf_load('../data/vocab/rdfs.rdfs').
-:- rdf_attach_db('../data/pl_store', [access(read_write)]).
+:- rdf_attach_db('../data/pl_store', [access(read_only)]).
 :- rdf_register_prefix(xcat, 'http://xeroxc.at/schema#').
+
+rdf_read :-
+    rdf_detach_db(),
+    rdf_attach_db('../data/pl_store', [access(read_only)]).
+
+rdf_write :-
+    rdf_detach_db(),
+    rdf_attach_db('../data/pl_store', [access(read_write)]).
 
 xcat_filepath(Resource, Filepath) :-
     rdf(Resource, xcat:file, File),
     rdf(File, xcat:path, Filepath^^xsd:string).
 
-xcat_tracklist_files(Release, FileList) :-
+xcat_tracklist(Release, RecordingList) :-% FileList) :-
     rdf(Release, rdf:type, xcat:'Release'),
     rdf(Release, xcat:tracklist, Tracklist),
-    rdf_seq(Tracklist, RecordingList),
+    rdf_seq(Tracklist, RecordingList).%,
+
+xcat_tracklist_filepaths(Release, FileList) :-
+    xcat_tracklist(Release, RecordingList),
     maplist(xcat_filepath, RecordingList, FileList).
 
 xcat_label(Resource, Label) :-
@@ -32,13 +44,16 @@ xcat_print(Resource, Class, Value) :-
         rdf(Resource, rdfs:label, Value^^xsd:string)
     ),
     rdf(Resource, rdf:type, ClassURI),
-    xcat_label(ClassURI, Class)
-    .
+    xcat_label(ClassURI, Class).
 
-mpd_add_file(FileURN, Result) :-
-    rdf(FileURN, xcat:path, Path^^xsd:string),
-    interpolate_string("mpc add '{PATH}'", Cmd, [PATH=Path], _),
-    shell(Cmd, Result).
+xcat_has_releases(Resource, Release) :-
+    rdf(Release, rdf:type, xcat:'Release'),
+    rdf(Resource, xcat:made, Release).
 
-mpd_play(Result) :-
-    shell("mpc play", Result).
+%mpd_add_file(FileURN, Result) :-
+%    rdf(FileURN, xcat:path, Path^^xsd:string),
+%    interpolate_string("mpc add '{PATH}'", Cmd, [PATH=Path], _),
+%    shell(Cmd, Result).
+%
+%add_access(FilePath, LDateTime) :-
+%    rdf(FilePath

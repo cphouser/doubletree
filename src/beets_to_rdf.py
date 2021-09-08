@@ -4,6 +4,8 @@ import os
 import time
 import pickle
 from datetime import datetime
+import logging
+from sys import stdout
 
 from rdflib.namespace import RDF, RDFS, OWL, XSD
 from beets.library import Library
@@ -12,7 +14,9 @@ from pyswip.prolog import Prolog
 from rdf_util import discogs
 from rdf_util.namespaces import B3, XCAT
 from rdf_util.b3 import file_hash, hashlist_hash
-from rdf_util.pl import query, xsd_type, rdf_find, new_bnode, LDateTime, TrackList
+from rdf_util.pl import (query, xsd_type, rdf_find, new_bnode, LDateTime,
+                         TrackList, rdf_unify)
+from log_util import LogFormatter
 
 release_dict = {}
 
@@ -41,7 +45,7 @@ def nometa_file_node(pl, data):
     file_URN = B3[data['_hash']]
     query(pl, (('rdf_assert', (file_URN, RDF.type, XCAT.File)),
                ('rdf_assert', (file_URN, XCAT.path, file_path))
-               ))
+               ), write=True)
     return file_URN
 
 
@@ -55,7 +59,7 @@ def entries_to_dir(pl, dir_hash, dir, dir_entries, subdir_hashes):
           + [('rdf_assert', (dir_URN, XCAT.dirEntry, entry))
              for entry in dir_entries]
           + [('rdf_assert', (dir_URN, XCAT.dirEntry, B3[subdir_hash]))
-             for subdir_hash in subdir_hashes])
+             for subdir_hash in subdir_hashes], write=True)
 
 
 def release_from_beets(pl, release_uri, source, _beets):
@@ -64,7 +68,7 @@ def release_from_beets(pl, release_uri, source, _beets):
     release_lbl = xsd_type(_beets['album'], 'string')
     query(pl, (('rdf_assert', (release_uri, RDF.type, XCAT.Release)),
                ('rdf_assert', (release_uri, XCAT.title, release_lbl))
-               ))
+               ), write=True)
 
     albumartist_lbl = xsd_type(_beets['albumartist'], 'string')
     label_uri = None
@@ -92,39 +96,43 @@ def release_from_beets(pl, release_uri, source, _beets):
     if not albumartist:
         albumartist = (rdf_find(pl,
                                 ((None, RDF.type, XCAT.Artist),
-                                 (None, XCAT.name, albumartist_lbl)))
-                       or new_bnode(pl))
+                                 (None, XCAT.name, albumartist_lbl)),
+                                unique=False) or new_bnode(pl))
+        if isinstance(albumartist, list):
+            albumartist = rdf_unify(pl, albumartist, log=log)
 
     query(pl, (('rdf_assert', (albumartist, RDF.type, XCAT.Artist)),
                ('rdf_assert', (albumartist, XCAT.name, albumartist_lbl)),
                ('rdf_assert', (release_uri, XCAT.maker, albumartist)),
                ('rdf_assert', (albumartist, XCAT.made, release_uri))
-               ))
+               ), write=True)
 
     if (year := _beets['year']):
         month = _beets.get('month')
         day = _beets.get('day')
         published_in = LDateTime(pl, year=year, month=month, day=day)
         query(pl, [('rdf_assert',
-                    (release_uri, XCAT.published_during, published_in))])
+                    (release_uri, XCAT.published_during, published_in))],
+              write=True)
 
     add_genres(pl, release_uri, _beets)
 
     if label_uri:
         label_lbl = xsd_type(_beets['label'], 'string')
         query(pl, (('rdf_assert', (label_uri, RDF.type, XCAT.MusicLabel)),
-                ('rdf_assert', (label_uri, XCAT.name, label_lbl)),
-                ('rdf_assert', (label_uri, XCAT.published, release_uri)),
-                ('rdf_assert', (release_uri, XCAT.publisher, label_uri))
-                ))
+                   ('rdf_assert', (label_uri, XCAT.name, label_lbl)),
+                   ('rdf_assert', (label_uri, XCAT.published, release_uri)),
+                   ('rdf_assert', (release_uri, XCAT.publisher, label_uri))
+                   ), write=True)
 
         if _beets['catalognum']:
             cat_num = xsd_type(_beets['catalognum'], 'string')
             query(pl, [('rdf_assert',
-                        (release_uri, XCAT.catalog_num, cat_num))])
+                        (release_uri, XCAT.catalog_num, cat_num))], write=True)
 
 
 def track_from_beets(pl, beets_lib, data):
+    global release_dict
     file_URN = B3[data['_hash']]
     file_path = xsd_type(data['path'], 'string')
     encoding = xsd_type(data['format'], 'string')
@@ -135,8 +143,8 @@ def track_from_beets(pl, beets_lib, data):
     query(pl, (('rdf_assert', (file_URN, RDF.type, XCAT.AudioFile)),
                ('rdf_assert', (file_URN, XCAT.encoding, encoding)),
                ('rdf_assert', (file_URN, XCAT.path, file_path)),
-               ('rdf_assert', (file_URN, XCAT.hash, xsd_type(data['_hash'],
-                                                             'string')))))
+               ('rdf_assert', (file_URN, XCAT.hash,
+                               xsd_type(data['_hash'], 'string')))), write=True)
 
     ## Define resources URI's depending on data source
     source = data['data_source']
@@ -161,15 +169,17 @@ def track_from_beets(pl, beets_lib, data):
         else:
             artist = (rdf_find(pl,
                                ((None, RDF.type, XCAT.Artist),
-                                (None, XCAT.name, artist_lbl)))
+                                (None, XCAT.name, artist_lbl)), unique=False)
                       or new_bnode(pl))
+            if isinstance(artist, list):
+                artist = rdf_unify(pl, artist, log=log)
         release = data['mb_albumid']
         track = data['mb_trackid']
 
     ## Add the artist
     query(pl, (('rdf_assert', (artist, RDF.type, XCAT.Artist)),
                ('rdf_assert', (artist, XCAT.name, artist_lbl))
-               ))
+               ), write=True)
 
     ## Add the mtime
     mtime_term = LDateTime(pl, year=mtime.year, month=mtime.month,
@@ -178,12 +188,13 @@ def track_from_beets(pl, beets_lib, data):
     ## Add the track
     query(pl, (('rdf_assert', (track, RDF.type, XCAT.Recording)),
                ('rdf_assert', (track, XCAT.file, file_URN)),
+               ('rdf_assert', (file_URN, XCAT.file, track)),
                ('rdf_assert', (track, XCAT.title, track_lbl)),
                ('rdf_assert', (track, XCAT.added_during, mtime_term)),
                ('rdf_assert', (track, XCAT.released_on, release)),
                ('rdf_assert', (track, XCAT.maker, artist)),
                ('rdf_assert', (artist, XCAT.made, track))
-               ))
+               ), write=True)
 
     ## Add the genres
     add_genres(pl, track, data)
@@ -193,12 +204,12 @@ def track_from_beets(pl, beets_lib, data):
         beetz_release = beets_lib.get_album(data['album_id'])
         release_from_beets(pl, release, source, beetz_release)
 
-    tracklist = release_dict[release]
-    tracklist += [(data['track'], track)]
+    release_dict[release] += [(data['track'], track)]
 
     ## Add the tracklist if it's full
-    if len(tracklist) == data['tracktotal']:
+    if len(release_dict[release]) == data['tracktotal']:
         # add tracklist to release
+        tracklist = release_dict[release]
         tracklist.sort()
         for idx, (track_num, track) in enumerate(tracklist):
             if idx + 1 != track_num:
@@ -207,10 +218,14 @@ def track_from_beets(pl, beets_lib, data):
         # extract list of only second value in list of tuples
         sorted_tracks = list(tuple(zip(*tracklist))[1])
         tlist_node = TrackList(pl, sorted_tracks)
-        query(pl, [('rdf_assert', (release, XCAT.tracklist, tlist_node))])
+        query(pl, [('rdf_assert', (release, XCAT.tracklist, tlist_node))],
+              write=True)
         del release_dict[release]
+    #else:
+    #    log.debug(f'{release}: {len(release_dict[release])} / '
+    #              f'{data["tracktotal"]}')
 
-    query(pl, [('rdf_assert', (track, XCAT.released_on, release))])
+    query(pl, [('rdf_assert', (track, XCAT.released_on, release))], write=True)
 
     return file_URN
 
@@ -223,7 +238,7 @@ def add_genres(pl, subj, beets_dict):
         query(pl, (('rdf_assert', (genre_uri, RDF.type, XCAT.Genre)),
                    ('rdf_assert', (genre_uri, XCAT.name, genre_name)),
                    ('rdf_assert', (subj, XCAT.genre, genre_uri))
-                   ))
+                   ), write=True)
     for (style_name, style_uri), (genre_name, genre_uri) in styles:
         genre_name = xsd_type(genre_name, 'string')
         style_name = xsd_type(style_name, 'string')
@@ -232,16 +247,19 @@ def add_genres(pl, subj, beets_dict):
                    ('rdf_assert', (subj, XCAT.style, style_uri)),
                    ('rdf_assert', (style_uri, XCAT.parent_genre, genre_uri)),
                    ('rdf_assert', (genre_uri, XCAT.genre_style, style_uri))
-                   ))
+                   ), write=True)
     for unmatched_name in unmatched:
         style_name = xsd_type(unmatched_name, 'string')
         style_uri = (rdf_find(pl, ((None, RDF.type, XCAT.Style),
-                                   (None, XCAT.name, style_name))
-                              ) or new_bnode(pl))
+                                   (None, XCAT.name, style_name)),
+                              unique=False) or new_bnode(pl))
+        if isinstance(style_uri, list):
+            style_uri = rdf_unify(pl, style_uri, log=log)
+
         query(pl, (('rdf_assert', (style_uri, RDF.type, XCAT.Style)),
                    ('rdf_assert', (style_uri, XCAT.name, style_name)),
                    ('rdf_assert', (subj, XCAT.style, style_uri))
-                   ))
+                   ), write=True)
 
 
 def get_genre_vals(beets_dict):
@@ -324,8 +342,8 @@ if __name__ == "__main__":
     parser.add_argument('input', help='folder to scan')
     parser.add_argument('--beets-library', '-b',
                         help='beets sqlite db to reference')
-    parser.add_argument('--reload', '-r', action='store_true',
-                        help='beets sqlite db to reference')
+    parser.add_argument('--pickle-cache', '-p', action='store_false',
+                        help='use a cache of the filedata from the last run')
     args = parser.parse_args()
     path = os.path.abspath(args.input)
     data_location = '../data/'
@@ -334,12 +352,20 @@ if __name__ == "__main__":
     beets_lib = beets_init(beets_path)
     cache_file = os.path.join(data_location, 'cache/loaded_dir.pickle')
 
+    log = logging.getLogger('beets_to_rdf')
+    log.setLevel(logging.DEBUG)
+    log_handler = logging.StreamHandler(stdout)
+    log_handler.setLevel(logging.DEBUG)
+    log_handler.setFormatter(LogFormatter())
+    log.addHandler(log_handler)
+
+    log.info(f"\n\t\tBeets to RDF {datetime.now()}")
     # initialize prolog store
     pl = Prolog()
     pl.consult('init.pl')
 
     # load files from directory
-    if args.reload:
+    if args.pickle_cache:
         cache = None
     else:
         try:
@@ -358,10 +384,10 @@ if __name__ == "__main__":
     # add music data from directory to prolog rdf store
     for dir, (in_db, not_in_db, subdir_hashes, dir_hash) in dirpaths.items():
         dir_entries = []
-        print(dir)
+        log.debug(f"{dir}: {len(in_db)} in beets, {len(not_in_db)} not in beets")
         for entry in in_db.values():
             dir_entries += [track_from_beets(pl, beets_lib, entry)]
         for entry in not_in_db.values():
             dir_entries += [nometa_file_node(pl, entry)]
-            print('\t', entry)
+            #print('\t', entry)
         entries_to_dir(pl, dir_hash, dir, dir_entries, subdir_hashes)
