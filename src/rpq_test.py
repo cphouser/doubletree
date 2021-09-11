@@ -2,6 +2,7 @@
 #
 from rdf_util.pl import RPQ, VarList
 from rdflib.namespace import RDF, RDFS, OWL, XSD
+from rdf_util.namespaces import XCAT
 
 def print_tree(query, indent=0):
     for key, display_str in query.items():
@@ -24,12 +25,49 @@ c = VarList('first: {}. second: {Second}, third: {}')
 
 rpq = RPQ('init.pl')
 
-subclasses = rpq.query(
-        'ChildClass',
-        f"rdf(ChildClass, '{RDFS.subClassOf}', ParentClass), "
-        'xcat_label(ChildClass, Label)',
-        '~{Label}~',
-        ('ParentClass', RDFS.Resource),
-        recursive=True)
+#subclasses = rpq.query(
+#        'ChildClass',
+#        f"rdf(ChildClass, '{RDFS.subClassOf}', ParentClass), "
+#        'xcat_label(ChildClass, Label)',
+#        '~{Label}~',
+#        ('ParentClass', RDFS.Resource),
+#        recursive=True)
+#
+#print_tree(subclasses)
+#print(subclasses.items())
+#
+#print(repr(subclasses))
+#print("---")
+query = rpq.querylist([
+            ['Artist',
+             f'rdfs_individual_of(Artist, Class), xcat_print(Artist, _, Name)',
+             '{Name} <{Artist}>',
+             ('Class', XCAT.Artist),
+             f'xcat_has_releases(Artist, _)',
+            ],
+            ['Album',
+             f"rdf(Artist, '{XCAT.made}', Album), xcat_print(Album, _, Name), "
+             f"rdf(Album, '{RDF.type}', '{XCAT.Release}')",
+             '{Name} <{Album}>',
+             ('Artist', None)
+            ],
+            ['[Track]',
+             "xcat_tracklist(Release, Track)",
+             '{TLabel} <{Track}>',
+             ('Release', None),
+             f"xcat_print(Track, _, TLabel)",
+             dict(q_by=False)
+             ]])
 
-print_tree(subclasses)
+query = rpq.querylist([
+            ['URI',
+             f"rdfs_individual_of(URI, InstanceClass)",
+             '[{Class}] {Label} <{URI}>',
+             ('InstanceClass', XCAT.LDateTime),
+             'xcat_print(URI, Class, Label)',
+             dict(null=True)]
+    ])
+
+print(query)
+print_tree(query)
+#print(*query.keys(), sep='\n')

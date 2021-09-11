@@ -1,98 +1,216 @@
 #!/usr/bin/env python3
 
-from pyswip.prolog import Prolog
-from pyswip import easy
-from rdf_util.namespaces import XCAT
-from rdflib.namespace import RDF, RDFS, OWL, XSD
-#from rdflib import URIRef
-
 from frozendict import frozendict
 import re
+from functools import total_ordering
 
+from pyswip.prolog import Prolog
+from pyswip import easy
+from rdflib.namespace import RDF, RDFS, OWL, XSD
+from indexed import IndexedOrderedDict
 
-class RPQuery():
-    #def __init__(self, pl, parent, keyname, from_query, varlist,
-    #             descendants=None, recursive=False):
+from rdf_util.namespaces import XCAT
+
+class RPQuery:
     def __init__(self, pl, key, q_from, q_as=None, parent=('', None),
                  q_where=None, q_by=None, unique=False, recursive=False,
-                 descendants=None):
-        if q_as is None:
-            q_as = key
+                 desc_q=None, null=False, log=None):
         self.parent = parent
         self.q_from = q_from
         self.q_where = q_where
-        self.q_as = VarList(q_as)
-        if not q_by:
-            q_by = self.q_as
-        self.q_by = VarList(q_by)
-        self._results = None
+        self.q_as = q_as
+        self.q_by = q_by
         self.key = key
         self.unique = unique
         self.recursive = recursive
-        self.descendants = descendants
+        self.null = null
+        self.desc_q = desc_q
         self.pl = pl
+        self.log = log
+        self._results = None
+        self._children = {}
+        # TODO add verify
+        self._child_type = None
 
 
-    def _items(self):
+    def copy(self, parent=None):
+        par_ref = self.parent
+        if parent:
+            par_ref = (par_ref[0], parent)
+        copy = RPQuery(self.pl, self.key, self.q_from, self.q_as, par_ref,
+                       self.q_where, self.q_by, self.unique, self.recursive,
+                       self.desc_q, self.null, log=self.log)
+        #if self.log: self.log.debug(copy)
+        return copy
+
+
+    def _query(self):
         if self._results is not None:
             return self._results
+
+        # replace parent variable w/ its value
         p_key, p_value = self.parent
         if p_value:
             p_value_str = str(p_value).replace("'", "\\'")
             q_from = self.q_from.replace(p_key, f"'{p_value_str}'")
-            #print(q_from)
+            if self.q_where:
+                q_where = self.q_where.replace(p_key, f"'{p_value_str}'")
+        else:
+            q_from = self.q_from
+            if self.q_where:
+                q_where = self.q_where
+
+        # if key is a list we need to retrieve the elements
+        if self.key[0] == '[' and self.key[-1] == ']':
+            key = self.key[1:-1]
+            process_list = True
+        else:
+            key = self.key
+            process_list = False
+
+        # add term querying type of the key
+        if self.q_where:
+            q_where += f", rdf({key}, '{RDF.type}', RPQ_KeyType)."
+        else:
+            q_from += f", rdf({key}, '{RDF.type}', RPQ_KeyType)."
+
+        # retrieve q_from results
         results = {}
-        self._results = {}
-        #print(f'executing\nSELECT {self.keyname} AS "{self.varlist}"\n'
-        #      f'FROM {self.q_from}')
-        if isinstance(self.key, list):
-            print("this key is a list")
-        for result in self.pl.query(q_from):
-            results[result[self.key]] = result
-        for key in sorted(results,
-                          key=lambda k: self.q_by.format(**results[k])):
-            self._results[key] = self.q_as.format(**results[key])
+        for from_result in self.pl.query(q_from):
+            if process_list:
+                list_result = from_result.pop(key)
+                for result in list_result:
+                    #if self.log: self.log.warn(key)
+                    result = _utf8(result)
+                    results[result] = {**from_result, key: result}
+            else:
+                results[from_result[key]] = from_result
+
+        # query q_where using each key
+        if self.q_where:
+            for k, result in dict(results).items():
+                k_value_str = _utf8(k).replace("'", "\\'")
+                this_q_where = q_where.replace(key, f"'{k_value_str}'")
+                where_query = self.pl.query(this_q_where)
+                if (where_result := next(where_query, False)):
+                    result.update(where_result)
+                    list(where_query)
+                elif not self.null:
+                    del results[k]
+
+        self._results = IndexedOrderedDict()
+        q_as = VarList(self.q_as) if self.q_as else Varlist(key)
+        # sort results using q_by varlist
+        if self.q_by is None:
+            q_by = q_as
+        else:
+            q_by = self.q_by
+
+        if q_by:
+            q_by = VarList(q_by)
+            for key in sorted(results, key=lambda k: q_by.result(**results[k])):
+                self._results[key] = q_as.result(**results[key])
+        else:
+            for key in results:
+                self._results[key] = q_as.result(**results[key])
+        #if self.log: self.log.warn(self._results)
         return self._results
 
 
     def items(self):
-        return self._items().items()
+        return self._query().items()
 
 
     def values(self):
-        return self._items().values()
+        return self._query().values()
+
+
+    def keys(self):
+        return self._query().keys()
 
 
     def __iter__(self):
-        yield from self._items().keys()
+        yield from self._query().keys()
 
 
     def __getitem__(self, key):
-        return self._items()[key]
+        return self._query()[key]
+
+
+    def __len__(self):
+        return len(self._query())
 
 
     def child_query(self, key):
+        #if self.log: self.log.debug(self.desc_q)
+        if key in self._children:
+            return self._children[key]
         if key not in self._results:
+            if self.log: self.log.debug(self.parent[1])
+            if self.log: self.log.debug(key)
             raise KeyError("Should i handle this?")
         if self.recursive:
-            par_ref = (self.parent[0], key)
-            return RPQuery(self.pl, self.key, self.q_from, self.q_as, par_ref,
-                           self.q_where, self.q_by, self.unique, self.recursive)
+            self._children[key] = self.copy(key)
+        elif self.desc_q is not None:
+            self._children[key] = self.desc_q.copy(key)
+        else:
+            self._children[key] = {}
+        return self._children[key]
 
 
-class RPQ():
-    def __init__(self, *consult_files):
+    def __str__(self):
+        string = '\n\t'.join([
+            "RPQuery:",
+            f'SELECT {self.key} AS "{self.q_as}"',
+            f'FROM {self.q_from}',
+            f'parent: ({self.parent[0]}:{self.parent[1]}) '
+        ])
+        if self.q_by:
+            string += f'BY: {self.q_by}'
+        if self.recursive:
+            string += f'\n\t(recursive)'
+        if self.q_where:
+            string += f'\n\tWHERE: {self.q_where}'
+
+        if self.desc_q is not None:
+            desc_str = str(self.desc_q)
+            for line in desc_str.splitlines()[1:]:
+                string += f'\n\t{line}'
+        return string
+
+
+class RPQ:
+    def __init__(self, *consult_files, log=None):
         self._pl = Prolog()
+        self._log = log
         for consult_file in consult_files:
             self._pl.consult(consult_file)
 
 
     def query(self, *args, **kwargs):
-        return RPQuery(self._pl, *args, **kwargs)
+        return RPQuery(self._pl, *args, log=self._log, **kwargs)
 
 
-class VarList():
-    _var = 'A'
+    def querylist(self, queries):
+        desc_query = None
+        for query in reversed(queries):
+            args = []
+            kwargs = {}
+            if isinstance(query, dict):
+                kwargs = query
+            if isinstance(query, list):
+                args = query
+                for idx, obj in enumerate(args):
+                    if isinstance(obj, dict):
+                        kwargs = obj
+                        args.pop(idx)
+            desc_query = RPQuery(self._pl, *args, log=self._log,
+                                 desc_q=desc_query, **kwargs)
+        return desc_query
+
+
+class VarList:
+    _var = 'RPQ_A'
 
     def __init__(self, *args, var_list=None, print_str=None):
         if args and isinstance(args[0], VarList):
@@ -131,14 +249,15 @@ class VarList():
 
     def anonymous_var(self):
         for i in range(25 - self._start):
-            if (var := chr(ord(self._var) + self._start + i)
+            if (var := self._var[:-1] + chr(ord(self._var[-1])
+                                            + self._start + i)
                     ) not in self.var_list:
                 self._start = self._start + i + 1
                 return var
         raise Exception(f"out of anonymous variables (total: {self._start})")
 
 
-    def format(self, *args, **kwargs):
+    def result(self, *args, **kwargs):
         val_dict = {key: None for key in self.var_list}
         for key, value in kwargs.items():
             val_dict[key] = _utf8(value)
@@ -150,14 +269,39 @@ class VarList():
         for key, val in val_dict.items():
             if val is None:
                 val_dict[key] = "."
-            #val_dict[key] = _utf8(val_dict[key])
-        #print(val_dict)
-        return self.print_str.format(*val_dict.values())
+        return QueryResult(self.print_str.format(*val_dict.values()), val_dict)
 
 
     def __repr__(self):
-        return self.format(*self.var_list)
+        return self.print_str.format(*self.var_list)
 
+
+@total_ordering
+class QueryResult:
+    def __init__(self, string, vals):
+        self.string = string
+        self.vals = vals
+        self.type = vals.get('RPQ_KeyType')
+
+
+    def __str__(self):
+        return self.string
+
+
+    def __repr__(self):
+        return f'<{self.__class__.__name__} "{self.string}" {self.type}>'
+
+
+    def __getitem__(self, key):
+        return self.vals[key]
+
+
+    def __lt__(self, other):
+        return self.string < other.string
+
+
+    def __eq__(self, other):
+        return self.string == other.string
 
 
 def rdf_unify(pl, terms, log=None):
@@ -281,7 +425,7 @@ def _utf8(var):
     elif isinstance(var, bytes):
         return var.decode('utf-8')
     elif isinstance(var, easy.Atom):
-        return var
+        return str(var)
     else:
         raise Exception(f"implement {type(var)}")
 
@@ -321,6 +465,7 @@ def _query(pl, query=None, unique=False, log=None):
 
 
 def mixed_query(pl, query, log=None):
+    # gotta do more if we're returning antything
     partial_query = []
     for statement in query:
         if callable(statement):
@@ -335,7 +480,6 @@ def mixed_query(pl, query, log=None):
         elif log: log.warn(f'bad type: {type(statement)} {statement}')
     if partial_query:
         res_args, res_kwargs = query_to_args(pl, partial_query, log)
-    # gotta do more if we're returning antything
 
 
 def query_to_args(pl, query, log=None):
