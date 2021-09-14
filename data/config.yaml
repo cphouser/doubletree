@@ -1,1 +1,26 @@
-/home/xeroxcat/.config/beets/config.yaml
+library: ~/projects/doubletree/data/ext/music.db
+
+plugins:
+  - fromfilename
+  - discogs
+  - bandcamp
+
+discogs:
+  source_weight: 0.8
+
+bandcamp:
+  source_weight: 0.6
+
+    #pluginpath:
+    #  - ~/projects/doubletree/lib/beets-bandcamp/beetsplug
+
+import:
+  write: no
+  copy: no
+  # whether existing metadata is discarded when a match is applied. 
+  #from_scratch: yes
+  detail: yes
+
+# incremental: yes
+#
+languages: en
