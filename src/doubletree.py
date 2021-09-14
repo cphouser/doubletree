@@ -17,52 +17,9 @@ from mpd_player import MpdPlayer
 
 from rdf_util.namespaces import XCAT
 from rdf_util.pl import mixed_query, fill_query, all_classes, RPQ, VarList
-
-tree_views = {
-    'instance_list': {
-        'query': [
-            ['URI',
-             f"rdfs_individual_of(URI, InstanceClass)",
-             '[{Class}] {Label} <{URI}>',
-             ('InstanceClass', None),
-             'xcat_print(URI, Class, Label)',
-             dict(null=True)]
-        ], 'root': RDFS.Resource},
-    'artist_releases': {
-        'query': [
-            ['Artist',
-             f'rdfs_individual_of(Artist, Class), xcat_print(Artist, _, Name)',
-             '{Name} <{Artist}>',
-             ('Class', None),
-             f'xcat_has_releases(Artist, _)',
-            ],
-            ['Album',
-             f"rdf(Artist, '{XCAT.made}', Album), xcat_print(Album, _, Name), "
-             f"rdf(Album, '{RDF.type}', '{XCAT.Release}')",
-             '{Name} <{Album}>',
-             ('Artist', None)
-            ],
-            ['[Track]',
-             "xcat_tracklist(Release, Track)",
-             '{TLabel} <{Track}>',
-             ('Release', None),
-             f"xcat_print(Track, _, TLabel)",
-             dict(q_by=False)
-            ],
-        ], 'root': XCAT.Artist,
-        },
-}
-
-instance_ops = {
-    str(XCAT.Recording): {
-        'enter': (('xcat_filepath', ('_k:key', '_v:Path')),
-                  mpd_util.add_to_list),
-        },
-    str(XCAT.Release): {
-        'enter': (('xcat_tracklist_filepaths', ('_k:key', '_v:Paths')),
-                  mpd_util.add_to_list),
-        }
-    }
+from rdf_util.queries import (tree_views, instance_ops, class_hierarchy,
+                              instance_properties, instance_is_property,
+                              track_format_query)
 
 class RPQ_NodeText(ur.TreeWidget):
     unexpanded_icon = ur.wimp.SelectableIcon('\u25B6', 0)
@@ -208,13 +165,17 @@ class InstanceView(ur.TreeListBox):
             sel_type = self.focus.get_node().get_value().type
             #log.debug(sel_type)
             #log.debug(instance_ops.keys())
+            selected = self.focus.get_node().get_key()
             if (operation := instance_ops.get(sel_type, {}).get(key)):
-                selected = self.focus.get_node().get_key()
                 key_dict = {"key": selected}
                 log.debug(f"{selected} {key} {operation}")
                 mixed_query(self.pl, fill_query(operation, key_dict))
                 self.window.frames['now'].reload()
                 return
+            elif key == 'e':
+                self.window.load_relations(selected)
+                return
+
         if (res := super().keypress(size, key)):
             return res
 
@@ -226,8 +187,11 @@ class InstanceView(ur.TreeListBox):
             self.parent = parent
         self.rpquery = query.copy(self.parent)
         if self.rpquery:
+            log.debug(self.rpquery)
             first_node = RPQ_Node(self.rpquery, self.rpquery.keys()[0], None)
             self.body = ur.TreeWalker(first_node)
+        else:
+            log.warning(self.rpquery)
 
 
     def new_view(self, view):
@@ -254,7 +218,7 @@ class ViewList(ur.ListBox):
     def load_views(self, leaf_class):
         #log.debug(leaf_class)
         classes = all_classes(self.pl, leaf_class)
-        log.debug(classes)
+        #log.debug(classes)
         views = []
         for rdfs_class in classes:
             for view_name, view in tree_views.items():
@@ -270,20 +234,56 @@ class ViewList(ur.ListBox):
         return self.focus.get_text()[0]
 
 
+class RPQ_ListElem(ur.Columns):
+    def __init__(self, key, query_result, reverse=False):
+        widget_list = [('fixed', 1, ur.SelectableIcon(' ')),
+                       ur.Text(str(query_result))]
+        self.elem = key
+        super().__init__(widget_list)
+
+
+class InstanceOps(ur.Frame):
+    def __init__(self, window, rpq):
+        self.header = ur.Padding(ur.Text("-"), align='center', width='pack')
+        self.has_props = ur.ListBox(ur.SimpleFocusListWalker([]))
+        self.is_props = ur.ListBox(ur.SimpleFocusListWalker([]))
+        self.prop_query = rpq.query(*instance_properties)
+        self.rev_prop_query = rpq.query(*instance_is_property)
+        super().__init__(ur.Columns([self.is_props, self.has_props]),
+                         self.header)
+
+
+    def load_instance(self, instance_key):
+        prop_query = self.prop_query.copy(instance_key)
+        rev_prop_query = self.rev_prop_query.copy(instance_key)
+        #log.debug(prop_query)
+        #log.debug(prop_query.keys())
+
+        subj_of = [RPQ_ListElem(obj, res, reverse=True)
+                   for obj, res in prop_query.items()]
+        obj_of = [RPQ_ListElem(sbj, res) for sbj, res in rev_prop_query.items()]
+        self.has_props.body = ur.SimpleFocusListWalker(subj_of)
+        self.is_props.body = ur.SimpleFocusListWalker(obj_of)
+        self.header.original_widget = ur.Text(instance_key)
+        log.debug(self.header.width)
+
+
 class Window(ur.WidgetWrap):
     def __init__(self, pl, rpq, update_rate=5):
-        #class_root = RDF_ParentNode(pl, RDFS.Resource, None, **class_hierarchy)
-        classtreewin = ClassView(self, class_hierarchy)
+        classtreewin = ClassView(self, rpq.query(*class_hierarchy))
 
         instancetreewin = InstanceView(self, pl)
 
         instancelistwin = ViewList(self, pl)
 
-        operationgrid = ur.WidgetPlaceholder(ur.SolidFill('.'))
+        operationgrid = InstanceOps(self, rpq)
 
+        self.format_query = rpq.query(*track_format_query)
         operationview = MpdPlayer(self.format_track, log=log)
 
-        top_frame = ur.Columns([classtreewin, instancelistwin, operationgrid])
+        top_frame = ur.Columns([('fixed', 30, classtreewin),
+                                ('fixed', 30, instancelistwin),
+                                operationgrid])
         bottom_frame = ur.Columns([instancetreewin, operationview])
         pile = ur.Pile([top_frame, bottom_frame])
 
@@ -308,8 +308,7 @@ class Window(ur.WidgetWrap):
                 if key_list[1] in ['up', 'down', 'left', 'right']:
                     self.focus_frame(key_list[1])
                     return None
-            log.info(f'size:{size}, key:{key_list},'
-                      f' focus:{self.active_frame()[1]}')
+            log.info(f'size:{size}, key:{key_list}')
 
 
     def focus_frame(self, direction):
@@ -327,33 +326,35 @@ class Window(ur.WidgetWrap):
                 self._w.focus.focus_position += 1
 
 
-    def active_frame(self):
-        if self._w.focus_position == 0:
-            if self._w.focus.focus_position == 0:
-                return self.frames["class"], "class"
-            else:
-                return self.frames["view"], "view"
-        else:
-            return self.frames["browse"], "browse"
-
-
     def load_instances(self, sel_class):
         self.frames["view"].load_views(sel_class)
         log.debug(self.frames["view"].selected())
         view = self.rpq.querylist(
             tree_views[self.frames["view"].selected()]['query']
         )
-        log.debug(view)
+        #log.debug(view)
         self.frames["browse"].new_tree(sel_class, view)
+
+
+    def load_relations(self, sel_instance):
+        self.frames['ops'].load_instance(sel_instance)
 
 
     def load_view(self, sel_view):
         view_query = self.rpq.querylist(sel_view)
+        #log.debug(view_query)
         self.frames["browse"].new_tree(query=view_query)
-        log.debug(view_query)
 
 
     def format_track(self, dictlike):
+        if (path := dictlike.get('file')):
+            results = self.format_query.copy(path).first_item()
+            log.debug(results)
+            dictlike['title'] = results.get("Recording", ".")
+            dictlike['artist'] = results.get("Artist", ".")
+            dictlike['album'] = results.get("Release", ".")
+            dictlike['year'] = results.get("Year", ".")
+            #dictlike = dict(dictlike)
         return {
             'key': dictlike.get('id', ""),
             'track': dictlike.get('title', ""),
@@ -376,15 +377,15 @@ def doubletree(rpq):
     pl = Prolog()
     pl.consult('init.pl')
 
-    try:
-        window = Window(pl, rpq, update_rate=1)
-        event_loop = ur.MainLoop(window, palette, unhandled_input=unhandled_input)
-        event_loop.set_alarm_in(1, window.update_dynamic)
-        event_loop.run()
-    except PrologError as e:
-        traceback.print_exc()
-        query = str(e).split('Returned:')[1].split('string(b"')[1].split('"')[0]
-        print(query)
+    #try:
+    window = Window(pl, rpq, update_rate=1)
+    event_loop = ur.MainLoop(window, palette, unhandled_input=unhandled_input)
+    event_loop.set_alarm_in(1, window.update_dynamic)
+    event_loop.run()
+    #except PrologError as e:
+    #    traceback.print_exc()
+    #    query = str(e).split('Returned:')[1].split('string(b"')[1].split('"')[0]
+    #    print(query)
 
 
 if __name__ == "__main__":
@@ -399,12 +400,5 @@ if __name__ == "__main__":
     log.info(f"\n\t\tDoubletree {datetime.now()}")
     rpq = RPQ('init.pl', log=log)
 
-    class_hierarchy = rpq.query(
-            'ChildClass',
-            f"rdf(ChildClass, '{RDFS.subClassOf}', ParentClass), "
-            'xcat_label(ChildClass, Label)',
-            '{Label}',
-            ('ParentClass', RDFS.Resource),
-            recursive=True)
 
     doubletree(rpq)

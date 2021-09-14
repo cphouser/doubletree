@@ -14,7 +14,7 @@ from rdf_util.namespaces import XCAT
 class RPQuery:
     def __init__(self, pl, key, q_from, q_as=None, parent=('', None),
                  q_where=None, q_by=None, unique=False, recursive=False,
-                 desc_q=None, null=False, log=None):
+                 desc_q=None, null=False, child_type=None, log=None):
         self.parent = parent
         self.q_from = q_from
         self.q_where = q_where
@@ -30,7 +30,7 @@ class RPQuery:
         self._results = None
         self._children = {}
         # TODO add verify
-        self._child_type = None
+        self.child_type = child_type
 
 
     def copy(self, parent=None):
@@ -39,7 +39,8 @@ class RPQuery:
             par_ref = (par_ref[0], parent)
         copy = RPQuery(self.pl, self.key, self.q_from, self.q_as, par_ref,
                        self.q_where, self.q_by, self.unique, self.recursive,
-                       self.desc_q, self.null, log=self.log)
+                       self.desc_q, self.null, self.child_type, log=self.log)
+        #if self.log: self.log.debug(self)
         #if self.log: self.log.debug(copy)
         return copy
 
@@ -47,6 +48,7 @@ class RPQuery:
     def _query(self):
         if self._results is not None:
             return self._results
+        #if self.log: self.log.debug(str(self))
 
         # replace parent variable w/ its value
         p_key, p_value = self.parent
@@ -69,10 +71,11 @@ class RPQuery:
             process_list = False
 
         # add term querying type of the key
-        if self.q_where:
-            q_where += f", rdf({key}, '{RDF.type}', RPQ_KeyType)."
-        else:
-            q_from += f", rdf({key}, '{RDF.type}', RPQ_KeyType)."
+        if self.child_type is not False:
+            if process_list and self.q_where:
+                q_where += f", rdf({key}, '{RDF.type}', RPQ_KeyType)."
+            else:
+                q_from += f", rdf({key}, '{RDF.type}', RPQ_KeyType)."
 
         # retrieve q_from results
         results = {}
@@ -92,11 +95,13 @@ class RPQuery:
                 k_value_str = _utf8(k).replace("'", "\\'")
                 this_q_where = q_where.replace(key, f"'{k_value_str}'")
                 where_query = self.pl.query(this_q_where)
-                if (where_result := next(where_query, False)):
+                #if self.log: self.log.debug(len(where_query))
+                if (where_result := next(where_query, False)) is not False:
                     result.update(where_result)
-                    list(where_query)
                 elif not self.null:
                     del results[k]
+                if self.log: self.log.debug(where_result)
+                list(where_query)
 
         self._results = IndexedOrderedDict()
         q_as = VarList(self.q_as) if self.q_as else Varlist(key)
@@ -106,15 +111,27 @@ class RPQuery:
         else:
             q_by = self.q_by
 
+        val_set = set()
         if q_by:
             q_by = VarList(q_by)
             for key in sorted(results, key=lambda k: q_by.result(**results[k])):
-                self._results[key] = q_as.result(**results[key])
+                result = q_as.result(**results[key])
+                # if unique delete keys with identical print forms
+                if self.unique and str(result) in val_set:
+                    continue
+                val_set.add(str(result))
+                self._results[key] = result
         else:
             for key in results:
-                self._results[key] = q_as.result(**results[key])
+                result = q_as.result(**results[key])
+                if self.unique and str(result) in val_set:
+                    continue
+                val_set.add(str(result))
+                self._results[key] = result
+
         #if self.log: self.log.warn(self._results)
         return self._results
+
 
 
     def items(self):
@@ -141,6 +158,13 @@ class RPQuery:
         return len(self._query())
 
 
+    def first_item(self):
+        if len(self):
+            return self[self.keys()[0]]
+        else:
+            return {}
+
+
     def child_query(self, key):
         #if self.log: self.log.debug(self.desc_q)
         if key in self._children:
@@ -160,18 +184,27 @@ class RPQuery:
 
     def __str__(self):
         string = '\n\t'.join([
-            "RPQuery:",
+            f'RPQuery: parent({self.parent[0]}:{self.parent[1]})',
             f'SELECT {self.key} AS "{self.q_as}"',
             f'FROM {self.q_from}',
-            f'parent: ({self.parent[0]}:{self.parent[1]}) '
         ])
         if self.q_by:
             string += f'BY: {self.q_by}'
-        if self.recursive:
-            string += f'\n\t(recursive)'
         if self.q_where:
-            string += f'\n\tWHERE: {self.q_where}'
-
+            string += f'n\tWHERE: {self.q_where}'
+        flag_string = []
+        if self.recursive:
+            flag_string += ['(recursive)']
+        if self.unique:
+            flag_string += ['(unique)']
+        if self.null:
+            flag_string += ['(null)']
+        if self.child_type is False:
+            flag_string += ['(no child type)']
+        if self._results is not None:
+            flag_string += [f'({len(self._results)} results)']
+        if flag_string:
+            string += '\n\t' + ' '.join(flag_string)
         if self.desc_q is not None:
             desc_str = str(self.desc_q)
             for line in desc_str.splitlines()[1:]:
@@ -188,6 +221,12 @@ class RPQ:
 
 
     def query(self, *args, **kwargs):
+        args = list(args)
+        kwargs = dict(kwargs)
+        for idx, arg in enumerate(args):
+            if isinstance(arg, dict):
+                more_kwargs = args.pop(idx)
+                kwargs.update(more_kwargs)
         return RPQuery(self._pl, *args, log=self._log, **kwargs)
 
 
@@ -197,9 +236,9 @@ class RPQ:
             args = []
             kwargs = {}
             if isinstance(query, dict):
-                kwargs = query
+                kwargs = dict(query)
             if isinstance(query, list):
-                args = query
+                args = list(query)
                 for idx, obj in enumerate(args):
                     if isinstance(obj, dict):
                         kwargs = obj
@@ -207,6 +246,8 @@ class RPQ:
             desc_query = RPQuery(self._pl, *args, log=self._log,
                                  desc_q=desc_query, **kwargs)
         return desc_query
+
+
 
 
 class VarList:
@@ -294,6 +335,13 @@ class QueryResult:
 
     def __getitem__(self, key):
         return self.vals[key]
+
+
+    def get(self, key, defaut=None):
+        try:
+            return self.vals[key]
+        except KeyError:
+            return default
 
 
     def __lt__(self, other):
@@ -424,6 +472,8 @@ def _utf8(var):
         return var
     elif isinstance(var, bytes):
         return var.decode('utf-8')
+    elif isinstance(var, int):
+        return var
     elif isinstance(var, easy.Atom):
         return str(var)
     else:

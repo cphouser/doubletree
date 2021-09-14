@@ -1,12 +1,16 @@
+beetcamp @ git+https://github.com/snejus/beetcamp.git@3928220d4090a754db51cbe195614c1ef5ac8643
 beets @ git+https://github.com/beetbox/beets.git@0d624191329f5ef5f9acf40ebd7c46b578383222
 blake3==0.1.8
 cached-property==1.5.2
 certifi==2020.12.5
 chardet==4.0.0
+coloredlogs==15.0.1
 confuse==1.4.0
 discogs-client==2.3.0
 frozendict==2.0.2
+humanfriendly==9.2
 idna==2.10
+indexed==1.2.1
 isodate==0.6.0
 jellyfish==0.8.2
 mediafile==0.6.0
@@ -17,6 +21,8 @@ oauthlib==3.1.1
 pycountry==20.7.3
 pyparsing==2.4.7
 pyswip==0.2.10
+python-mpd2==3.0.4
+python-musicpd==0.7.0
 PyYAML==5.4.1
 rdflib==5.0.0
 requests==2.25.1

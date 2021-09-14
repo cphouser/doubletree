@@ -188,7 +188,7 @@ def track_from_beets(pl, beets_lib, data):
     ## Add the track
     query(pl, (('rdf_assert', (track, RDF.type, XCAT.Recording)),
                ('rdf_assert', (track, XCAT.file, file_URN)),
-               ('rdf_assert', (file_URN, XCAT.file, track)),
+               ('rdf_assert', (file_URN, XCAT.recording, track)),
                ('rdf_assert', (track, XCAT.title, track_lbl)),
                ('rdf_assert', (track, XCAT.added_during, mtime_term)),
                ('rdf_assert', (track, XCAT.released_on, release)),

@@ -11,8 +11,11 @@
 
 :- rdf_load('../data/vocab/xcat.rdfs').
 :- rdf_load('../data/vocab/rdfs.rdfs').
+:- rdf_load('../data/vocab/xsd.rdfs').
 :- rdf_attach_db('../data/pl_store', [access(read_only)]).
 :- rdf_register_prefix(xcat, 'http://xeroxc.at/schema#').
+
+:- ensure_loaded('dates.pl').
 
 rdf_read :-
     rdf_detach_db(),
@@ -39,17 +42,38 @@ xcat_label(Resource, Label) :-
     rdf(Resource, rdfs:label, Label^^xsd:string).
 
 xcat_print(Resource, Class, Value) :-
+    Resource = Value^^ClassURI,
+    xcat_print(ClassURI, Class), !.
+xcat_print(Resource, Class, Value) :-
     (   rdf(Resource, xcat:name, Value^^xsd:string);
         rdf(Resource, xcat:title, Value^^xsd:string);
         rdf(Resource, rdfs:label, Value^^xsd:string)
     ),
     rdf(Resource, rdf:type, ClassURI),
     xcat_label(ClassURI, Class).
+xcat_print(AudioFile, Encoding, Value) :-
+    rdf(AudioFile, rdf:type, xcat:'AudioFile'),
+    rdf(AudioFile, xcat:encoding, EncodingLiteral),
+    xcat_print(EncodingLiteral, Encoding),
+    rdf(Recording, xcat:file, AudioFile),
+    xcat_print(Recording, Value).
+
+xcat_print(Resource, Value) :-
+    xcat_print(Resource, _, Value).
+    %Resource = Value^^_, !.
+%xcat_print(Resource, Value) :-
+    %(   rdf(Resource, xcat:name, Value^^xsd:string);
+    %    rdf(Resource, xcat:title, Value^^xsd:string);
+    %    rdf(Resource, rdfs:label, Value^^xsd:string)
+    %).
 
 xcat_has_releases(Resource, Release) :-
     rdf(Release, rdf:type, xcat:'Release'),
     rdf(Resource, xcat:made, Release).
 
+xcat_merge_into(This, That) :-
+    rdf_update(This, _, _, subject(That)),
+    rdf_update(_, _, This, object(That)).
 %mpd_add_file(FileURN, Result) :-
 %    rdf(FileURN, xcat:path, Path^^xsd:string),
 %    interpolate_string("mpc add '{PATH}'", Cmd, [PATH=Path], _),

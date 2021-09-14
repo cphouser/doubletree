@@ -136,10 +136,10 @@ class CurrentSong(ur.ProgressBar):
     def update_bar(self):
         if self.playing:
             self.current_sec = int(time.time()) - self.start_time
-        if self.current_sec > self.total_sec:
-            return True
-        else:
-            self.set_completion(self.current_sec)
+            if self.current_sec > self.total_sec:
+                return True
+            else:
+                self.set_completion(self.current_sec)
         #if self.log: self.log.debug((self.current_sec, self.total_sec, self.start_time))
         return False
 
