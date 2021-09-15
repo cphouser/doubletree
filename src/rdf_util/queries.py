@@ -69,29 +69,28 @@ tree_views = {
         'query': [
             ['DateTime',
              'rdfs_individual_of(DateTime, InstanceClass), '
-             f"rdf(DateTime, '{XCAT.year}', Year), xcat_print(Year, YLabel)",
+             f"xcat_print_year(DateTime, YLabel)",
              '{YLabel}',
              ('InstanceClass', None),
-             dict(unique=True)],
+             dict(unique=True, child_type=False)],
             ['DateTime',
              "xcat_same_year(ParentDT, DateTime), "
-             f"rdf(DateTime, '{XCAT.month}', Month), "
-             "xcat_print_month(Month, MLabel, MInt)",
+             "xcat_print_month(DateTime, MLabel, MInt)",
              ("{MLabel}"),
              ('ParentDT', None),
              dict(unique=True, q_by="{MInt}")],
             ['DateTime',
              "xcat_same_month(ParentDT, DateTime), "
-             f"rdf(DateTime, '{XCAT.day}', Day), xcat_print_day(Day, DLabel)",
+             f"rdf(DateTime, '{XCAT.day}', Day), xcat_print(DateTime, DLabel)",
              ("{DLabel}"),
              ('ParentDT', None),
-             dict(unique=True)],
+             dict(unique=True, q_by='{DateTime}')],
             ['DateTime',
              "xcat_same_day(ParentDT, DateTime), "
-             f"rdf(DateTime, '{XCAT.hour}', Hour), xcat_print(Hour, HLabel)",
+             f"rdf(DateTime, '{XCAT.hour}', Hour), xcat_print(DateTime, HLabel)",
              ("{HLabel}"),
              ('ParentDT', None),
-             dict(unique=True)]
+             dict(unique=True, q_by='{DateTime}')],
         ], 'root': XCAT.LDateTime
     }
 }

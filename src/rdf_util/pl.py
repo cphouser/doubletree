@@ -598,7 +598,7 @@ def LDateTime(pl, **kwargs):
     for arg, xsd_t in zip(argnames, xsdtypes):
         if (dt_frag := kwargs.get(arg)):
             dt_preds += [(XCAT[arg], xsd_type(dt_frag, xsd_t))]
-            dt_uri += '.' + str(dt_frag)
+            dt_uri += '.' + str(dt_frag).rjust(2, '0')
         else:
             break
     if not query(pl, [('rdf', (dt_uri, RDF.type, XCAT.LDateTime))]):

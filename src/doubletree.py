@@ -279,6 +279,7 @@ class Window(ur.WidgetWrap):
         operationgrid = InstanceOps(self, rpq)
 
         self.format_query = rpq.query(*track_format_query)
+        self.track_cache = {}
         operationview = MpdPlayer(self.format_track, log=log)
 
         top_frame = ur.Columns([('fixed', 30, classtreewin),
@@ -348,13 +349,15 @@ class Window(ur.WidgetWrap):
 
     def format_track(self, dictlike):
         if (path := dictlike.get('file')):
-            results = self.format_query.copy(path).first_item()
-            log.debug(results)
-            dictlike['title'] = results.get("Recording", ".")
-            dictlike['artist'] = results.get("Artist", ".")
-            dictlike['album'] = results.get("Release", ".")
-            dictlike['year'] = results.get("Year", ".")
-            #dictlike = dict(dictlike)
+            if (cached := self.track_cache.get(path)):
+                dictlike = cached
+            else:
+                results = self.format_query.copy(path).first_item()
+                log.debug(results)
+                dictlike['title'] = results.get("Recording", ".")
+                dictlike['artist'] = results.get("Artist", ".")
+                dictlike['album'] = results.get("Release", ".")
+                dictlike['year'] = results.get("Year", ".")
         return {
             'key': dictlike.get('id', ""),
             'track': dictlike.get('title', ""),
@@ -377,15 +380,10 @@ def doubletree(rpq):
     pl = Prolog()
     pl.consult('init.pl')
 
-    #try:
     window = Window(pl, rpq, update_rate=1)
     event_loop = ur.MainLoop(window, palette, unhandled_input=unhandled_input)
     event_loop.set_alarm_in(1, window.update_dynamic)
     event_loop.run()
-    #except PrologError as e:
-    #    traceback.print_exc()
-    #    query = str(e).split('Returned:')[1].split('string(b"')[1].split('"')[0]
-    #    print(query)
 
 
 if __name__ == "__main__":

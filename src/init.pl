@@ -1,7 +1,6 @@
 #!/usr/bin/env swipl
 
 :- use_module(library('apply')).
-:- use_module(library('strings')).
 :- use_module(library('semweb/rdf11')).
 :- use_module(library('semweb/rdfs')).
 :- use_module(library('semweb/rdf11_containers'), except([rdfs_member/2])).
@@ -44,6 +43,11 @@ xcat_label(Resource, Label) :-
 xcat_print(Resource, Class, Value) :-
     Resource = Value^^ClassURI,
     xcat_print(ClassURI, Class), !.
+xcat_print(LDateTime, Class, Print) :-
+    exists_source('dates.pl'),
+    rdf(LDateTime, rdf:type, xcat:'LDateTime'),
+    xcat_print_date(LDateTime, Print),
+    Class = xcat:'LDateTime'.
 xcat_print(Resource, Class, Value) :-
     (   rdf(Resource, xcat:name, Value^^xsd:string);
         rdf(Resource, xcat:title, Value^^xsd:string);
@@ -60,12 +64,6 @@ xcat_print(AudioFile, Encoding, Value) :-
 
 xcat_print(Resource, Value) :-
     xcat_print(Resource, _, Value).
-    %Resource = Value^^_, !.
-%xcat_print(Resource, Value) :-
-    %(   rdf(Resource, xcat:name, Value^^xsd:string);
-    %    rdf(Resource, xcat:title, Value^^xsd:string);
-    %    rdf(Resource, rdfs:label, Value^^xsd:string)
-    %).
 
 xcat_has_releases(Resource, Release) :-
     rdf(Release, rdf:type, xcat:'Release'),
@@ -74,10 +72,3 @@ xcat_has_releases(Resource, Release) :-
 xcat_merge_into(This, That) :-
     rdf_update(This, _, _, subject(That)),
     rdf_update(_, _, This, object(That)).
-%mpd_add_file(FileURN, Result) :-
-%    rdf(FileURN, xcat:path, Path^^xsd:string),
-%    interpolate_string("mpc add '{PATH}'", Cmd, [PATH=Path], _),
-%    shell(Cmd, Result).
-%
-%add_access(FilePath, LDateTime) :-
-%    rdf(FilePath
