@@ -19,7 +19,7 @@ from rdf_util.namespaces import XCAT
 from rdf_util.pl import mixed_query, fill_query, all_classes, RPQ, VarList
 from rdf_util.queries import (tree_views, instance_ops, class_hierarchy,
                               instance_properties, instance_is_property,
-                              track_format_query)
+                              track_format_query, printed_resource)
 
 class RPQ_NodeText(ur.TreeWidget):
     unexpanded_icon = ur.wimp.SelectableIcon('\u25B6', 0)
@@ -249,6 +249,7 @@ class InstanceOps(ur.Frame):
         self.is_props = ur.ListBox(ur.SimpleFocusListWalker([]))
         self.prop_query = rpq.query(*instance_properties)
         self.rev_prop_query = rpq.query(*instance_is_property)
+        self.instance_q = rpq.query(*printed_resource)
         super().__init__(ur.Columns([self.is_props, self.has_props]),
                          self.header)
 
@@ -264,7 +265,8 @@ class InstanceOps(ur.Frame):
         obj_of = [RPQ_ListElem(sbj, res) for sbj, res in rev_prop_query.items()]
         self.has_props.body = ur.SimpleFocusListWalker(subj_of)
         self.is_props.body = ur.SimpleFocusListWalker(obj_of)
-        self.header.original_widget = ur.Text(instance_key)
+        self.instance = self.instance_q.copy(instance_key)
+        self.header.original_widget = ur.Text(str(self.instance.first_item()))
         log.debug(self.header.width)
 
 

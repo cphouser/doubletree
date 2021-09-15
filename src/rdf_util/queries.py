@@ -4,6 +4,13 @@ import mpd_util
 from rdflib.namespace import RDF, RDFS, OWL, XSD
 from rdf_util.namespaces import XCAT
 
+printed_resource = [
+    'Resource',
+    'xcat_print(Resource, Class, String)',
+    '{String} <{Class}>',
+    ('Resource', None),
+]
+
 instance_properties = [
     'ObjURI',
     "rdf(Subject, PredURI, ObjURI), "

@@ -47,7 +47,13 @@ xcat_print(LDateTime, Class, Print) :-
     exists_source('dates.pl'),
     rdf(LDateTime, rdf:type, xcat:'LDateTime'),
     xcat_print_date(LDateTime, Print),
-    Class = xcat:'LDateTime'.
+    Class = 'LDateTime'.
+xcat_print(AudioFile, Encoding, Value) :-
+    rdf(AudioFile, rdf:type, xcat:'AudioFile'),
+    rdf(AudioFile, xcat:encoding, EncodingLiteral),
+    xcat_print(EncodingLiteral, Encoding),
+    rdf(Recording, xcat:file, AudioFile),
+    xcat_print(Recording, Value).
 xcat_print(Resource, Class, Value) :-
     (   rdf(Resource, xcat:name, Value^^xsd:string);
         rdf(Resource, xcat:title, Value^^xsd:string);
@@ -55,12 +61,6 @@ xcat_print(Resource, Class, Value) :-
     ),
     rdf(Resource, rdf:type, ClassURI),
     xcat_label(ClassURI, Class).
-xcat_print(AudioFile, Encoding, Value) :-
-    rdf(AudioFile, rdf:type, xcat:'AudioFile'),
-    rdf(AudioFile, xcat:encoding, EncodingLiteral),
-    xcat_print(EncodingLiteral, Encoding),
-    rdf(Recording, xcat:file, AudioFile),
-    xcat_print(Recording, Value).
 
 xcat_print(Resource, Value) :-
     xcat_print(Resource, _, Value).
