@@ -248,6 +248,25 @@ class RPQ:
         return desc_query
 
 
+    def rassert(self, *statements):
+        return RPAssert(self._pl, *statements, log=self._log).execute()
+
+
+class RPAssert:
+    _enter = "rdf_write"
+    _exit = "rdf_read"
+    def __init__(self, pl, *statements, log=None):
+        self.statements = statements
+        self.pl = pl
+        self.log = log
+
+
+    def execute(self):
+        list(self.pl.query(self._enter))
+        if self.log: self.log.debug("ASSERT\n" + ",\n".join(self.statements))
+        res = list(self.pl.query(", ".join(self.statements)))
+        if self.log: self.log.debug(res)
+        list(self.pl.query(self._exit))
 
 
 class VarList:
