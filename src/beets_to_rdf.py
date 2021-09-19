@@ -338,13 +338,12 @@ if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('input', help='folder to scan')
+    parser.add_argument('input', help='folder(s) to scan', nargs="+")
     parser.add_argument('--beets-library', '-b',
                         help='beets sqlite db to reference')
-    parser.add_argument('--pickle-cache', '-p', action='store_false',
+    parser.add_argument('--pickle-cache', '-p', action='store_true',
                         help='use a cache of the filedata from the last run')
     args = parser.parse_args()
-    path = os.path.abspath(args.input)
     data_location = '../data/'
     beets_path = args.beets_library or os.path.join(data_location,
                                                     'ext/music.db')
@@ -362,10 +361,10 @@ if __name__ == "__main__":
     # initialize prolog store
     pl = Prolog()
     pl.consult('init.pl')
-    rpq = RPQ('init.pl', log=log)
+    rpq = RPQ('init.pl')#, log=log)
 
     # load files from directory
-    if args.pickle_cache:
+    if not args.pickle_cache:
         cache = None
     else:
         try:
@@ -376,7 +375,10 @@ if __name__ == "__main__":
     if cache:
         dirpaths = cache
     else:
-        dirpaths = rec_load_dir(path, beets_lib)
+        dirpaths = {}
+        for path in args.input:
+            path = os.path.abspath(path)
+            dirpaths.update(rec_load_dir(path, beets_lib))
 
     # cache directory data
     pickle.dump(dirpaths, open(cache_file, 'wb+'))
@@ -389,7 +391,6 @@ if __name__ == "__main__":
             dir_entries += [track_from_beets(rpq, pl, beets_lib, entry)]
         for entry in not_in_db.values():
             dir_entries += [nometa_file_node(pl, entry)]
-            #print('\t', entry)
         entries_to_dir(pl, dir_hash, dir, dir_entries, subdir_hashes)
     log.warn("Incomplete tracklists:")
     for release, item in release_dict.items():

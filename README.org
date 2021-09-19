@@ -1,0 +1,84 @@
+* Doubletree
+
+A python TUI and misc utilities for building and using a SWI-Prolog RDF store.
+** explanation
+/a lot to unpack here/
+** quickstart
+here are the minimal instructions for setting up on Debian Bullseye. Probably will work on other debian-based Linux distros like Ubuntu or Mint (idk, lmk?).
+Windows and OSX installation seems hypothetically possible? Designed to run on a modest linux server, a modern raspberry pi will probably do just fine.
+
+*** install (from apt and pip)
+Tested with these versions, mileage may vary for anything older (will definitely break on anything older than python 3.8)
+
+| Python         |  3.9.2 |
+| SWI-Prolog     | 8.3.22 |
+| mpd            | 0.22.4 |
+| mpc (optional) |   0.33 |
+
+The following steps install needed dependencies. Non python programs are installed at the system level, python dependencies are installed to a virtual environment in the project directory. This is useful for a "development environment" where scripts and the interactive python shell can be used to interact with the RDF database. The downside for regular use is that the virtual environment must be sourced in the terminal we're running in.
+
+#+BEGIN_SRC sh
+sudo apt install mpd mpc swi-prolog # non python dependencies
+git clone https://github.com/xeroxcat/doubletree.git
+cd doubletree && python3 -m venv ./virtual-env
+source ./virtual-env/bin/activate # enter the vitrual environment
+python3 -m pip install -r requirements.txt # install python dependencies
+#deactivate # exit the virtual environment (or don't - we'll need it later)
+#+END_SRC
+
+mpc is not really a dependency but can be useful for debugging mpd and toggling the play state without having the UI open. Its the standard command line mpd client.
+
+*** setup mpd
+
+I've always needed to make some changes to =/etc/mpd.conf= in order for it to play. Primarily enabling ALSA or PulseAudio depending on whatever I have set up. In general:
+1. if I have pulse installed (=pactl --version= is a valid command) use pulse output as described [[https://askubuntu.com/a/555484][in this question]] and [[https://askubuntu.com/a/1013010][this followup]]
+
+2. otherwise I use the default alsa config by uncommenting it from =/etc/mpd.conf=.
+
+**** pulse config
+add to =/etc/mpd.conf=:
+#+BEGIN_SRC
+audio_output {
+       type     "pulse"
+       name     "My PULSE Device"
+       server   "127.0.0.1"
+}
+#+END_SRC
+
+add to =/etc/pulse/default.pa=:
+#+BEGIN_SRC
+load-module module-native-protocol-tcp auth-ip-acl=127.0.0.1
+#+END_SRC
+
+*** run init.pl in the prolog shell
+this doesn't set anything up but will make sure we can access and save the Prolog RDF store. Currently the =doubletree/data/pl_store= must be manually created for this.
+
+#+BEGIN_SRC sh
+# assume we're still in the root project folder
+mkdir data/pl_store
+cd src && ./init.pl # should run without errors
+# exit the prolog shell with "halt."
+#+END_SRC
+
+*** create the beets library
+/(this definitely deserves some context)/
+
+I reccommend using the beets config file at =data/config.yaml=. pass it to any beets command listed below with the =-c= option (=-c data/config.yaml=) or create a symlink to it at =~/.config/beets/config.yaml=.
+
+Import all music into the beets library:
+*fyi with ~200gb of rather poorly sorted music this took me about a day*
+#+BEGIN_SRC sh
+beet import <path to your music dir>
+#+END_SRC
+If music isn't centralized in a single directory, you can repeat this command with every directory you want to import.
+
+*** add the beets library to the RDF store
+#+BEGIN_SRC sh
+# assume we're still in the src/ directory
+./beets_to_rdf.py <path to your music dir> <path to other music dir> ...
+#+END_SRC
+*** install the mpd monitor daemon
+=mpd_monitor/mpd_monitor.service=
+/add some real instructions/
+*** run the browser
+=./doubletree.py=
