@@ -213,11 +213,14 @@ class RPQuery:
 
 
 class RPQ:
-    def __init__(self, *consult_files, log=None):
+    def __init__(self, *consult_files, write_mode=False, log=None):
         self._pl = Prolog()
         self._log = log
+        self.write_mode = write_mode
         for consult_file in consult_files:
             self._pl.consult(consult_file)
+        if write_mode is True:
+            list(self._pl.query(RPAssert._enter))
 
 
     def query(self, *args, **kwargs):
@@ -248,25 +251,50 @@ class RPQ:
         return desc_query
 
 
+    def boolquery(self, *queries):
+        query = self._pl.query(" ,".join(queries))
+        if (result := next(query, False)) is not False:
+            list(query)
+            return True
+        return False
+
+
     def rassert(self, *statements):
-        return RPAssert(self._pl, *statements, log=self._log).execute()
+        return RPAssert(self._pl, *statements, write_mode=self.write_mode,
+                        log=self._log).execute()
+
+
+    def new_bnode(self):
+        result = RPAssert(self._pl, "rdf_create_bnode(X)",
+                          write_mode=self.write_mode).execute()
+        return result[0]['X']
+
+
+    def new_seq(self, term_list):
+        result = RPAssert(self._pl, f"rdf_assert_seq(X, {term_list})",
+                          write_mode=self.write_mode).execute()
+        return result[0]['X']
 
 
 class RPAssert:
     _enter = "rdf_write"
     _exit = "rdf_read"
-    def __init__(self, pl, *statements, log=None):
+    def __init__(self, pl, *statements, write_mode=False, log=None):
         self.statements = statements
+        self.write_mode = write_mode
         self.pl = pl
         self.log = log
 
 
     def execute(self):
-        list(self.pl.query(self._enter))
+        if not self.write_mode:
+            list(self.pl.query(self._enter))
         if self.log: self.log.debug("ASSERT\n" + ",\n".join(self.statements))
         res = list(self.pl.query(", ".join(self.statements)))
         if self.log: self.log.debug(res)
-        list(self.pl.query(self._exit))
+        if not self.write_mode:
+            list(self.pl.query(self._exit))
+        return res
 
 
 class VarList:
@@ -371,20 +399,43 @@ class QueryResult:
         return self.string == other.string
 
 
-def rdf_unify(pl, terms, log=None):
+def rdf_unify(rpq, terms, log=None):
     bnodes = [t for t in terms if '_:genid' == t[:7]]
     uris = [t for t in terms if '_:genid' != t[:7]]
     if log: log.debug(f"unifying: {bnodes} with {uris}")
     if len(uris) > 1:
-        raise Exception("probably need to handle this interactively")
+        #raise Exception("probably need to handle this interactively")
+        uris = sort_uris(uris, log=log)
     elif not uris:
         raise Exception("not sure if this is gonna happen")
     uri = uris[0]
-    for node in bnodes:
-        query(pl, (('rdf_update', (node, '_', '_', f"subject('{uri}')")),
-                   ('rdf_update', ('_', '_', node, f"object('{uri}')"))),
-              write=True, log=log)
+    update_list = []
+    for node in bnodes + uris[1:]:
+        update_list += [
+            f"rdf_update('{node}', _, _, subject('{uri}'))",
+            f"rdf_update(_, _, '{node}', object('{uri}'))"
+        ]
+    rpq.rassert(*update_list)
     return uri
+
+
+def sort_uris(uri_list, log=None):
+    mb_uris = []
+    dg_uris = []
+    bc_uris = []
+    for uri in uri_list:
+        if "musicbrainz.org" in uri:
+            mb_uris.append(uri)
+        elif "discogs.com" in uri:
+            dg_uris.append(uri)
+        elif "bandcamp.com" in uri:
+            bc_uris.append(uri)
+        else:
+            raise Exception(f"where is {uri} from?")
+    for uris in [mb_uris, dg_uris, bc_uris]:
+        if log and len(uris) > 1:
+            log.warning(f"how to merge {uris}?")
+    return mb_uris + dg_uris + bc_uris
 
 
 def all_classes(pl, subject_class):
@@ -486,19 +537,6 @@ def fill_query(query, key_dict, log=None):
     return tuple(new_query)
 
 
-def _utf8(var):
-    if isinstance(var, str):
-        return var
-    elif isinstance(var, bytes):
-        return var.decode('utf-8')
-    elif isinstance(var, int):
-        return var
-    elif isinstance(var, easy.Atom):
-        return str(var)
-    else:
-        raise Exception(f"implement {type(var)}")
-
-
 def _query(pl, query=None, unique=False, log=None):
     if not query:
         return [], []
@@ -583,8 +621,17 @@ def rdf_find(pl, triples, unique=True):
     return result[0]['X']
 
 
-def new_bnode(pl):
-    return query(pl, [('rdf_create_bnode', ['_v:X'])], write=True)[0]['X']
+def _utf8(var):
+    if isinstance(var, str):
+        return var
+    elif isinstance(var, bytes):
+        return var.decode('utf-8')
+    elif isinstance(var, int):
+        return var
+    elif isinstance(var, easy.Atom):
+        return str(var)
+    else:
+        raise Exception(f"implement {type(var)}")
 
 
 def xsd_type(literal, xsd_t):
@@ -608,7 +655,7 @@ def xsd_untype(rdf_literal):
     return f"{literal}^^'{XSD[xsd_t]}'"
 
 
-def LDateTime(pl, **kwargs):
+def LDateTime(rpq, **kwargs):
     argnames = ('year', 'month', 'day', 'hour', 'minute', 'second')
     xsdtypes = ('gYear', 'gMonth', 'gDay', *(['nonNegativeInteger'] * 3))
 
@@ -620,19 +667,20 @@ def LDateTime(pl, **kwargs):
             dt_uri += '.' + str(dt_frag).rjust(2, '0')
         else:
             break
-    if not query(pl, [('rdf', (dt_uri, RDF.type, XCAT.LDateTime))]):
-        query(pl, [('rdf_assert', (dt_uri, RDF.type, XCAT.LDateTime))]
-              + [('rdf_assert', (dt_uri, pred, obj)) for pred, obj in dt_preds],
-              write=True)
+    if not rpq.boolquery(f"rdf('{dt_uri}', '{RDF.type}', '{XCAT.LDateTime}')"):
+        assert_list = [
+            f"rdf_assert('{dt_uri}', '{RDF.type}', '{XCAT.LDateTime}')"
+        ] + [
+            f"rdf_assert('{dt_uri}', '{pred}', {obj})" for pred, obj in dt_preds
+        ]
+        rpq.rassert(*assert_list)
     return dt_uri
 
 
-def TrackList(pl, term_list, log=None):
-    seq = query(pl, log=log, write=True,
-                query=[('rdf_assert_seq', ('_v:X', term_list))])[0]['X']
-    query(log=log, query=(('rdf_retractall', (seq, RDF.type, RDF.Seq)),
-                          ('rdf_assert', (seq, RDF.type, XCAT.TrackList))
-                          ), write=True)
+def TrackList(rpq, term_list, log=None):
+    seq = rpq.new_seq(term_list)
+    rpq.rassert(f"rdf_retractall('{seq}', '{RDF.type}', '{RDF.Seq}')",
+                f"rdf_assert('{seq}', '{RDF.type}', '{XCAT.TrackList}')")
     return seq
 
 

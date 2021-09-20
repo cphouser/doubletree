@@ -6,7 +6,7 @@ from datetime import datetime
 import musicpd
 from pyswip.prolog import Prolog
 
-from rdf_util.pl import LDateTime, xsd_type, query
+from rdf_util.pl import RPQ, LDateTime, xsd_type, query
 from rdf_util.namespaces import XCAT
 
 def mpd_monitor(client, client_kwargs):
@@ -29,20 +29,16 @@ def mpd_monitor(client, client_kwargs):
 
 def save_play(playing):
     ts = datetime.now()
-    now = LDateTime(pl, year=ts.year, month=ts.month, day=ts.day, hour=ts.hour,
+    now = LDateTime(rpq, year=ts.year, month=ts.month, day=ts.day, hour=ts.hour,
                     minute=ts.minute)
-    X = None
-    res = query(pl, write=True, query=(
-        ('rdf', ('_v:File', XCAT.path, xsd_type(playing, 'string'))),
-        ('rdf_assert', ('_v:File', XCAT.accessed_during, now))
-    ))
+    rpq.rassert(f"rdf(File, '{XCAT.path}', {xsd_type(playing, 'string')})",
+                f"rdf_assert(File, '{XCAT.accessed_during}', '{now}')")
 
 
 if __name__ == "__main__":
     client = musicpd.MPDClient()
     client_kwargs = dict(host='/run/mpd/socket')
-    pl = Prolog()
-    pl.consult('init.pl')
+    rpq = RPQ('init.pl')
     playing = None
     end_ts = None
     while True:
