@@ -15,8 +15,8 @@ from pyswip.prolog import Prolog
 from rdf_util import discogs
 from rdf_util.namespaces import B3, XCAT
 from rdf_util.b3 import file_hash, hashlist_hash
-from rdf_util.pl import (query, xsd_type, rdf_find, LDateTime,
-                         TrackList, rdf_unify, RPQ)
+from rdf_util.pl import (query, xsd_type, rdf_find, LDateTime, entries_to_dir,
+                         TrackList, rdf_unify, RPQ, nometa_file_node)
 from log_util import LogFormatter
 
 release_dict = {}
@@ -39,34 +39,6 @@ def mb_url(key, value):
         return (base + 'artist/' + str(value))
     elif 'release' in key:
         return (base + 'release/' + str(value))
-
-
-def nometa_file_node(rpq, data):
-    file_path = xsd_type(data['path'], 'string')
-    _hash = xsd_type(data['_hash'], 'string')
-    file_URN = B3[data['_hash']]
-    rpq.rassert(*[
-        f"rdf_assert('{file_URN}', '{RDF.type}', '{XCAT.File}')",
-        f"rdf_assert('{file_URN}', '{XCAT.path}', {file_path})",
-        f"rdf_assert('{file_URN}', '{XCAT.hash}', {_hash})",
-    ])
-    return file_URN
-
-
-def entries_to_dir(rpq, dir_hash, dir, dir_entries, subdir_hashes):
-    path = xsd_type(dir, 'string')
-    dir_URN = B3[dir_hash]
-    dir_hash = xsd_type(dir_hash, 'string')
-    assert_list = [
-        f"rdf_assert('{dir_URN}', '{RDF.type}', '{XCAT.Directory}')",
-        f"rdf_assert('{dir_URN}', '{XCAT.path}', {path})",
-        f"rdf_assert('{dir_URN}', '{XCAT.hash}', {dir_hash})",
-    ] + [f"rdf_assert('{dir_URN}', '{XCAT.dirEntry}', '{entry}')"
-         for entry in dir_entries
-    ] + [f"rdf_assert('{dir_URN}', '{XCAT.dirEntry}', '{B3[subdir_hash]}')"
-         for subdir_hash in subdir_hashes
-    ]
-    rpq.rassert(*assert_list)
 
 
 def release_from_beets(rpq, pl, release_uri, source, _beets):
@@ -416,7 +388,7 @@ if __name__ == "__main__":
             dir_entries += [track_from_beets(rpq, pl, beets_lib, entry)]
         for entry in not_in_db.values():
             dir_entries += [nometa_file_node(rpq, entry)]
-        entries_to_dir(rpq, dir_hash, dir, dir_entries, subdir_hashes)
+        entries_to_dir(rpq, dir_hash, dir, dir_entries)#, subdir_hashes)
     log.warning("Incomplete tracklists:")
     for release, item in release_dict.items():
         log.warning(':\n'.join([str(release), pformat(item)]))

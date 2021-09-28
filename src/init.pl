@@ -69,6 +69,14 @@ xcat_has_releases(Resource, Release) :-
     rdf(Release, rdf:type, xcat:'Release'),
     rdf(Resource, xcat:made, Release).
 
+% write operations; might need to complicate for supporting
+% predicate modifications, might break already if changing
+% literals.
+
 xcat_merge_into(This, That) :-
     rdf_update(This, _, _, subject(That)),
     rdf_update(_, _, This, object(That)).
+
+xcat_retract(Resource) :-
+    rdf_retractall(Resource, _, _),
+    rdf_retractall(_, _, Resource).

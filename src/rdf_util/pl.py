@@ -9,7 +9,7 @@ from pyswip import easy
 from rdflib.namespace import RDF, RDFS, OWL, XSD
 from indexed import IndexedOrderedDict
 
-from rdf_util.namespaces import XCAT
+from rdf_util.namespaces import XCAT, B3
 
 class RPQuery:
     def __init__(self, pl, key, q_from, q_as=None, parent=('', None),
@@ -274,6 +274,10 @@ class RPQ:
         result = RPAssert(self._pl, f"rdf_assert_seq(X, {term_list})",
                           write_mode=self.write_mode).execute()
         return result[0]['X']
+
+
+    def uns_query(self, query):
+        return list(self._pl.query(query))
 
 
 class RPAssert:
@@ -644,17 +648,6 @@ def xsd_type(literal, xsd_t):
     return f"{literal}^^'{XSD[xsd_t]}'"
 
 
-def xsd_untype(rdf_literal):
-    print(rdf_literal, type(rdf_literal))
-    if isinstance(rdf_literal, str):
-        return rdf_literal,
-    elif isinstance(literal, int):
-        pass
-    else:
-        raise Exception(f"implement {type(literal)}")
-    return f"{literal}^^'{XSD[xsd_t]}'"
-
-
 def LDateTime(rpq, **kwargs):
     argnames = ('year', 'month', 'day', 'hour', 'minute', 'second')
     xsdtypes = ('gYear', 'gMonth', 'gDay', *(['nonNegativeInteger'] * 3))
@@ -689,3 +682,33 @@ def direct_subclasses(pl, resource=RDFS.Resource):
                      ('xcat_label', ('_v:Subclass', '_v:Label'))])
     return sorted([(r['Subclass'], r['Label'].decode('utf-8')) for r in res],
                   key=lambda x: x[1])
+
+
+def nometa_file_node(rpq, data):
+    #TODO fix this bad gross interface
+    file_path = xsd_type(data['path'], 'string')
+    _hash = xsd_type(data['_hash'], 'string')
+    file_URN = B3[data['_hash']]
+    rpq.rassert(*[
+        f"rdf_assert('{file_URN}', '{RDF.type}', '{XCAT.File}')",
+        f"rdf_assert('{file_URN}', '{XCAT.path}', {file_path})",
+        f"rdf_assert('{file_URN}', '{XCAT.hash}', {_hash})",
+    ])
+    return file_URN
+
+
+def entries_to_dir(rpq, dir_hash, dirpath, dir_entries):#, subdir_hashes):
+    path = xsd_type(dirpath, 'string')
+    dir_URN = B3[dir_hash]
+    dir_hash = xsd_type(dir_hash, 'string')
+    assert_list = [
+        f"rdf_assert('{dir_URN}', '{RDF.type}', '{XCAT.Directory}')",
+        f"rdf_assert('{dir_URN}', '{XCAT.path}', {path})",
+        f"rdf_assert('{dir_URN}', '{XCAT.hash}', {dir_hash})",
+    ] + [f"rdf_assert('{dir_URN}', '{XCAT.dirEntry}', '{entry}')"
+         for entry in dir_entries
+    ] # i swear this is redundant but didn't re-test
+    #+ [f"rdf_assert('{dir_URN}', '{XCAT.dirEntry}', '{B3[subdir_hash]}')"
+    #     for subdir_hash in subdir_hashes
+    #]
+    rpq.rassert(*assert_list)
