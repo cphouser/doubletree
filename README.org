@@ -33,6 +33,7 @@ mpc is not really a dependency but can be useful for debugging mpd and toggling 
 I've always needed to make some changes to =/etc/mpd.conf= in order for it to play. Primarily enabling ALSA or PulseAudio depending on whatever I have set up. In general:
 1. if I have pulse installed (=pactl --version= is a valid command) use pulse output as described [[https://askubuntu.com/a/555484][in this question]] and [[https://askubuntu.com/a/1013010][this followup]]
 
+
 2. otherwise I use the default alsa config by uncommenting it from =/etc/mpd.conf=.
 
 **** pulse config
