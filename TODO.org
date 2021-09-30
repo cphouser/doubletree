@@ -1,0 +1,59 @@
+#+TITLE: Todo
+
+* queries
+** get rid of =rdf_find= and =mixed_query=
+last two remnants of the old query api, can clean up pl.py immensely after
+
+** new queries
+*** songs per artist that don't have a release by that artist
+
+*** listen history:
+  date hierarchy reverse sorted, days have time-sorted listens
+
+*** file hierarchy
+
+** query api
+*** specify a python function as the view of a query
+*** document
+*** syntax for typechecking parent and children of a query
+- could use this to get rid of the 'root' in tree views
+
+* TUI
+** instance ops
+*** h popup to show useful keypresses
+*** organizing keypresses:
+1. actions that direct UI change
+2. actions that run RPL queries
+3. anything else?
+
+any better categories for abstracting these for using stuff interchangably?
+
+*** should this be its own class
+- holding the rpq object?
+- holding the window?
+- should keypress operations be their own class w/ these references?
+
+** InstanceOps
+*** different name from =instance_ops=
+*** should be able to load each listed property like from the InstanceView
+*** should be able to edit properties from subject or object side
+**** new property
+1. select from valid property classes
+   /create new?/
+2. select object/subject from valid as defined by property
+   /create new?/
+*** should have generic way to create new instance (of anything?)
+** investigate running a subterminal esp w/ a subTUI
+** window management
+*** some scheme for managing windows without needing to be visible tiles in interface
+*** windows should be able to load other windows?
+*** move stuff around dynamically
+*** save and reload window state
+
+* music
+** find music files which aren't imported as xcat:AudioFile
+*** list by file metadata
+*** bulk import albums
+*** search for rdf entries that match metadata
+*** correct tracklists esp with missing entries
+** fix mpd_player ugly wrapping of column contents

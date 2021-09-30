@@ -37,7 +37,8 @@ class_hierarchy = [
     'xcat_label(ChildClass, Label)',
     '{Label}',
     ('ParentClass', RDFS.Resource),
-    dict(recursive=True)]
+    dict(recursive=True)
+]
 
 tree_views = {
     'instance_list': {
