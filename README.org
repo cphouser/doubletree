@@ -64,7 +64,7 @@ cd src && ./init.pl # should run without errors
 *** create the beets library
 /(this definitely deserves some context)/
 
-I reccommend using the beets config file at =data/config.yaml=. pass it to any beets command listed below with the =-c= option (=-c data/config.yaml=) or create a symlink to it at =~/.config/beets/config.yaml=.
+I reccommend using the beets config file at =data/config.yaml=. pass it to any beets command listed below with the =-c= option (=-c data/config.yaml=) or create a symlink to it at =~/.config/beets/config.yaml=. this config file adds the discogs and bandcamp source plugins and sets beets to not actually touch any files it pulls data for. Haven't fully explored the implications of using beets this way but it prevents any mistakes made in the beets import process from overwriting info in the file metadata (which might be more correct).
 
 Import all music into the beets library:
 *fyi with ~200gb of rather poorly sorted music this took me about a day*
@@ -78,8 +78,28 @@ If music isn't centralized in a single directory, you can repeat this command wi
 # assume we're still in the src/ directory
 ./beets_to_rdf.py <path to your music dir> <path to other music dir> ...
 #+END_SRC
+/probably deserves some explanation/
+
 *** install the mpd monitor daemon
-=mpd_monitor/mpd_monitor.service=
-/add some real instructions/
+=src/mpd_monitor/= contains a script to monitor the mpd service and add listens to the rdf database. It also contains a service file that can be installed to systemd. I've only really tested installing as a user service so instructions for that are included here.
+
+- edit =mpd_monitor.service= so the paths point to the project directory and =mpd_monitor.py=.
+- edit =mpd_monitor.py= so the executable invoked in the hashbang points to the python executable in your virtual environment.
+- symlink, move, or copy =mpd_monitor.service= to =~/.config/systemd/user/mpd_monitor.service=.
+- =systemctl --user start mpd_monitor.service= to start. tail the journal with =journalctl --user -f= to make sure it started correctly.
+  replace =start= with =enable= to make it run on startup (good idea)
 *** run the browser
 =./doubletree.py=
+** misc utilities
+currently all in the =src= project dir
+*** =update_paths.py=
+(run with =-h= flag for options)
+this script was made to update the paths and hashes for each direntry in the database. This was designed to let me update the paths to music in rdf without having to reimport it all into beets and then reimport that all in to a clean rdf db. It also will add any new files (as generic =xcat:File= resources) and directories.
+
+To do this is rehashes each file and dir in the specified paths and checks for the hashes in the rdf db. any direntry resources not found are deleted.
+
+*** =move_paths.py=
+similar to the above script, this script updates the paths in the rdf db but more naively (and quickly). it does a basic string replacement on all paths in the database. it is intended for when all files in the db under a common root path move to a new root path. does no checking for validity.
+
+*** =clean_db.sh=
+delete the entire db. probably not a good idea. execute permissions disabled for that reason. run it with =sh clean_db.sh= if needed. might be necessary to do this before running =rdf_from_beets.py= if a previous run had ended midway thru adding files to the rdf db.

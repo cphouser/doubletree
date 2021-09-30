@@ -94,19 +94,6 @@ if __name__ == "__main__":
         pathlist.append(path)
         dirhashes[pathhash] = pathlist
 
-    #print()
-    #for idx, (path, pathhash) in enumerate(dirpaths.items()):
-    #    if idx > 10:
-    #        break
-    #    log.debug(pathhash + path)
-    #print()
-    #for idx, (pathhash, paths) in enumerate(dirhashes.items()):
-    #    if idx > 10:
-    #        break
-    #    log.debug(pathhash)
-    #    log.debug(pformat(paths, width=150))
-    #print()
-
     for b3hash, paths in dirhashes.items():
         assertions = []
         if len(paths) > 1:
