@@ -32,8 +32,6 @@ mpc is not really a dependency but can be useful for debugging mpd and toggling 
 
 I've always needed to make some changes to =/etc/mpd.conf= in order for it to play. Primarily enabling ALSA or PulseAudio depending on whatever I have set up. In general:
 1. if I have pulse installed (=pactl --version= is a valid command) use pulse output as described [[https://askubuntu.com/a/555484][in this question]] and [[https://askubuntu.com/a/1013010][this followup]]
-
-
 2. otherwise I use the default alsa config by uncommenting it from =/etc/mpd.conf=.
 
 **** pulse config
@@ -83,10 +81,10 @@ If music isn't centralized in a single directory, you can repeat this command wi
 *** install the mpd monitor daemon
 =src/mpd_monitor/= contains a script to monitor the mpd service and add listens to the rdf database. It also contains a service file that can be installed to systemd. I've only really tested installing as a user service so instructions for that are included here.
 
-- edit =mpd_monitor.service= so the paths point to the project directory and =mpd_monitor.py=.
-- edit =mpd_monitor.py= so the executable invoked in the hashbang points to the python executable in your virtual environment.
-- symlink, move, or copy =mpd_monitor.service= to =~/.config/systemd/user/mpd_monitor.service=.
-- =systemctl --user start mpd_monitor.service= to start. tail the journal with =journalctl --user -f= to make sure it started correctly.
+1 edit =mpd_monitor.service= so the paths point to the project directory and =mpd_monitor.py=.
+2 edit =mpd_monitor.py= so the executable invoked in the hashbang points to the python executable in your virtual environment.
+3 symlink, move, or copy =mpd_monitor.service= to =~/.config/systemd/user/mpd_monitor.service=.
+4 =systemctl --user start mpd_monitor.service= to start. tail the journal with =journalctl --user -f= to make sure it started correctly.
   replace =start= with =enable= to make it run on startup (good idea)
 *** run the browser
 =./doubletree.py=
