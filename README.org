@@ -3,6 +3,12 @@
 A python TUI and misc utilities for building and using a SWI-Prolog RDF store.
 ** explanation
 /a lot to unpack here/
+more or less what it do:
+*** as a music player
+- "indexes" a digital music library (bunch of music files) as a set of linked data according to the schema [[file:data/vocab/xcat_networkx_image_dot.png][rendered here]] and [[file:data/vocab/xcat.ttl][specified here]]. To understand the rendering - all boxes URI references specified in the schema. cyan boxes are predicates connecting their domain to their range. pink arrows denote subclassing. orange boxes denote resources not defined in this schema but subclassed by resource classes in the schema.
+- gives a terminal interface that browses resources in the database. Trees form the basis of this interface. an API on top of the prolog store accepts queries which can be rendered directly as trees in the interface. queries can be selected interactively and are easy to create without modifying the interface. the api closely mimics directly querying the prolog store interactively.
+- uses mpd to play music and features an window in the terminal interface to control the mpd queue. basic commands to be documented but =mpd_player.py= is short and clean and can be integrated into any urwid interface (for use without an rdf database.) songs in the instance window of the the interface can currently be added to the mpd queue by artist, album, and individual song.
+- each song play thru mpd can be added as an 'xcat:accessed_during' property automatically with a systemd daemon.
 ** quickstart
 here are the minimal instructions for setting up on Debian Bullseye. Probably will work on other debian-based Linux distros like Ubuntu or Mint (idk, lmk?).
 Windows and OSX installation seems hypothetically possible? Designed to run on a modest linux server, a modern raspberry pi will probably do just fine.
