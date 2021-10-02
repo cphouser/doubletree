@@ -1,0 +1,87 @@
+#+TITLE: Rpq
+
+* RPQ (_R_ DF _P_ rolog _Q_ uery)
+/RPQ/ is a wrapper class to instantiate various calls to the Prolog system. The verious methods provide different interfaces for structured pre and post processing of prolog quer(ies). Most of the wrapping is intended to provide a Pythonic interface over the results of a prolog query on the RDF Store.
+
+** RPQ.query(), RPQ.querylist() -> RPQuery() :RDF_terms:
+Factory function for generating an RPQuery. An RPQuery is a lazily loaded Object-Relational Mapping of a semi-structured prolog query.
+
+/This could use a fair bit of intro - compare and contrast with how queries might look in swipl [swiprolog REPL]/
+
+The structure loosely follows SQL syntax, as remembered by someone who took a 10-week course on SQL and has rarely used it since.
+
+A SQL Query (SELECT ... FROM ...) can be thought of as a mapping of one or more tables to a result table. In an abstract sense it is a presentation of data in a Relational Database. In such a system data is defined as a collection of tables. The column definitions of the table generally represent the structure of the data (the object classes from OO heuristics) and the rows of the table constitute data within that structure (the object instances). The SQL query on those tables is a transformation of data as it is defined in the database to an expression of certain facts of the database (As another table).
+
+/should I bother using examples to further explain how I think about SQL?/
+*** vaguely
+An interactive Prolog interface and an interactive SQL interface both present [something like what i think of?] a language of Constraint Logic Programming. A set of facts and rules is structured in a /Database/ which is /Queried/. The result of these queries are themselves facts of the database.
+
+In both instances, the facts produced by a query can be represented in a tabular structure. /some examples showing what I mean by this for prolog?/
+
+The underlying graph structure of an RDF database presents an opportunity to construct more complex useful structures from a set of constraints. A "knowledge graph" focuses [i think?] on defining relations between sets of terms. Facts then can be more usefully explored as trees of relations among terms in the database.
+
+**** rdf knowledge graph
+The /subjects/ and /objects/ of a relation are members in (categorized into) a heirarchy of types. The relational /predicates/ are themselves members in a heirarchy of prepositional types. A /predicate/ connecting a /subject/ to an /object/ is also considered a /property/ of the subject, with the /predicate/ and /object/ representing the type and value of the /property/ respectively.
+
+**** /idk some practical examples?/
+classic knowledge graph examples typically feature a graph of people and sometimes stuff. the people have relations with each other and stuff. the stuff itself has relations with people and with other stuff.
+
+*Alice* and *Bob* are canonicical people, and *likes* and is a canonical relation between them. Typically *Bob* -*likes*-> *Alice*.
+
+A simple RDF query would then state a /subject/ /predicate/ /object/ relation, defining one or more of those terms to retreive either a boolean (in the case all three terms of the relation are defined) or a list of terms which are true when substituted into the undefined terms. A query with all three terms undefined then simply returns all relations in the RDF database.
+
+given the canon of facts above, X -*likes*-> *Alice* would retrieve "X = *Bob*".
+
+/god do i need to introduce Carol?/
+
+**** compound questions form trees
+
+
+*** RPQuery syntax=
+In practice currently, these fields are actually not parsed from a string but passed as arguments to the RPQuery constructor. This SQL-like syntax is designed to introduce the conceptual framework of an RPQuery using comparison to SQL (Does this require accurately remembering SQL?).
+
+#+BEGIN_SRC sql
+[WITH Parent EQUALS <RDF_Resource>:<RDF_Type>|<RDF_Resource>:|:<RDF_Type>]
+SELECT Child[:<RDF_Type>|False] [AS <Format Expression>]
+FROM <Prolog Query> [BY <Format Expression>]
+[WHERE <Prolog Query>]
+[RECURSIVE] [NULL] [UNIQUE]
+            [... <Descendant Queries>]
+#+END_SRC
+
+**** =SELECT= *Child* and =WITH= *Parent* - Prolog Variables
+*Parent* and *Child* aren't keywords but example variable names. Internally the names /parent/ and /child/ are still used to express these two contexts in the query syntax.
+***** Typing Syntax / Options and Contexts
+****** Defined with *<RDF_Type>*
+internally is actually =rdfs_individual_of/2= so queries can make use of the subclass heirarchy
+****** Leaving undefined with *None*
+=None= used internally by Python but expressed as an absent Term
+******* Interpretation for *Parent* Context (=WITH= Clause)
+One of either *<RDF_Resource>* or *<RDF_Type>* must be specified before the query is executed. Logically specifying neither is expressed as an absent =WITH= clause.
+******** *<RDF_Type>* is Undefined / =None=
+Leaving *<RDF_Type>* unspecified in the RPQuery simply forgoes defining the valid parent terms for this query. This basically creates an /anonymous query/ that doesn't define the context it should be ran from. This can be useful for a query that will only be ran in one context which always has some inherent restriction on the *<RDF_Resource>* it specifies as the parent value.
+******** *<RDF_Resource>* is Undefined / =None=
+Leaving the first term undefined produces a Prolog query which defines the *Parent* variable indirectly as a member of the specified *<RDF_Type>*. This could be considered syntactic sugar for adding the rule =rdfs_individual_of(Parent, <RDF_Type>)= to the =FROM= query.
+******* Interpretation for *Child* Context (=SELECT= Clause)
+/Comparing to structure of =WITH= clause, *<RDF_Resource>* in =SELECT= Clause is always defined by the result of the query - Each is the valid instantiations of the *Child* variable./
+******** *<RDF_Type>* is Undefined / =None=
+Leaving the *Child* type undefined could be compared to leaving *<RDF_Resource>* undefined in the *Parent* context. For query execution it is syntactic sugar for adding a similar rule, =rdfs_individual_of(Child, RDF_Type)=, to the last prolog query expression in the RPQuery (=WHERE= if it is defined, =FROM= if it is not.)
+
+This type doesn't constrain the query results but is available with them, creating an interface for defining operations to be executed using the given *Child* instance. This interface allows operations to be defined according to a given =QueryResult= type (instead of by the application context of the query.)
+
+****** Deferred with *False* (For *Child* Context)
+Explicitly specifying the *<RDF_Type>* as =False= will keep the RPQuery from querying for the type of *Child*. This is useful when *Child* does not have a type class (usually meaning it is a literal.)
+
+Doing this may also improve query performance?
+**** =FROM= *<Prolog Query>* and =WHERE= *<Prolog Query>* - Prolog Rule Expressions
+***** List Unpacking Syntax
+***** =UNIQUE= and =NULL= - Constraining =FROM= and =WHERE=
+**** =AS= and =BY= - Format Expressions
+***** =VarList= - Result Specification Class
+***** =QueryResult= - Instantiated Result Class
+**** =RECURSIVE= and *<Descendant Queries>*
+***** Lazily Generating Trees
+***** Lazy Query Disjunction
+Heterogenous types in the same tree level?
+
+*** Orphan Queries

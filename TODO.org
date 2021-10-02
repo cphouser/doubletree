@@ -18,15 +18,33 @@ last two remnants of the old query api, can clean up pl.py immensely after
 *** syntax for typechecking parent and children of a query
 - could use this to get rid of the 'root' in tree views
 
+** orphan queries
+instantiate query structure without prolog instance.
+- should we do this as a classmethod of RPQ?
+- should we just make pl instance optional in RPQ constructor
+  - probably not, bunch of methods would have to be turned off
+- subclass RPQ and RPQuery to init without pl instance?
 * TUI
-** instance ops
+** header
+- active instance:typeclass
+- active window
+  - search term on '/' ?
+** TODO instance ops
+this stuff might work globally, see window management
 *** h popup to show useful keypresses
 *** organizing keypresses:
 1. actions that direct UI change
 2. actions that run RPL queries
 3. anything else?
-
 any better categories for abstracting these for using stuff interchangably?
+
+**** Operation class
+- construct w/ lambda (and query)
+- always apply top level window
+- pass a orphan query to a window
+- lambda is applying a method of a member window
+- in top level keypress handler focus
+
 
 *** should this be its own class
 - holding the rpq object?
@@ -45,10 +63,25 @@ any better categories for abstracting these for using stuff interchangably?
 *** should have generic way to create new instance (of anything?)
 ** investigate running a subterminal esp w/ a subTUI
 ** window management
+*** move instance view list into collapsible pile above instance view
 *** some scheme for managing windows without needing to be visible tiles in interface
+*** resizing/focusing should apply w/ a resizableWindow mixin?
 *** windows should be able to load other windows?
-*** move stuff around dynamically
+*** move stuff around dynamically ?
 *** save and reload window state
+are urwid windows pickleable?
+*** search mixin?
+- on /
+- take a display widget for printing search
+- take a keypress to search on (otherwise search immediately)
+- recurse over widgets until there's a text widget
+  - search over children (common interface or bunch of isinstance?)
+  - if isinstance ur.Text:
+    + match for regex:
+      - focus and return true or if not focusable return false
+    + else:
+      - return None
+  - if children return false focus and return true
 
 * music
 ** find music files which aren't imported as xcat:AudioFile
