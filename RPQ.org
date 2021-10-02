@@ -1,7 +1,7 @@
 #+TITLE: Rpq
 
 * RPQ (_R_ DF _P_ rolog _Q_ uery)
-/RPQ/ is a wrapper class to instantiate various calls to the Prolog system. The verious methods provide different interfaces for structured pre and post processing of prolog quer(ies). Most of the wrapping is intended to provide a Pythonic interface over the results of a prolog query on the RDF Store.
+/RPQ/ is a wrapper class to instantiate various calls to the Prolog system. The various methods provide different interfaces for structured pre and post processing of prolog quer(ies). Most of the wrapping is intended to provide a Pythonic interface over the results of a prolog query on the RDF Store.
 
 ** RPQ.query(), RPQ.querylist() -> RPQuery() :RDF_terms:
 Factory function for generating an RPQuery. An RPQuery is a lazily loaded Object-Relational Mapping of a semi-structured prolog query.
@@ -37,7 +37,7 @@ given the canon of facts above, X -*likes*-> *Alice* would retrieve "X = *Bob*".
 **** compound questions form trees
 
 
-*** RPQuery syntax=
+*** RPQuery syntax
 In practice currently, these fields are actually not parsed from a string but passed as arguments to the RPQuery constructor. This SQL-like syntax is designed to introduce the conceptual framework of an RPQuery using comparison to SQL (Does this require accurately remembering SQL?).
 
 #+BEGIN_SRC sql
@@ -57,14 +57,23 @@ internally is actually =rdfs_individual_of/2= so queries can make use of the sub
 ****** Leaving undefined with *None*
 =None= used internally by Python but expressed as an absent Term
 ******* Interpretation for *Parent* Context (=WITH= Clause)
+
 One of either *<RDF_Resource>* or *<RDF_Type>* must be specified before the query is executed. Logically specifying neither is expressed as an absent =WITH= clause.
+
 ******** *<RDF_Type>* is Undefined / =None=
+
 Leaving *<RDF_Type>* unspecified in the RPQuery simply forgoes defining the valid parent terms for this query. This basically creates an /anonymous query/ that doesn't define the context it should be ran from. This can be useful for a query that will only be ran in one context which always has some inherent restriction on the *<RDF_Resource>* it specifies as the parent value.
+
 ******** *<RDF_Resource>* is Undefined / =None=
+
 Leaving the first term undefined produces a Prolog query which defines the *Parent* variable indirectly as a member of the specified *<RDF_Type>*. This could be considered syntactic sugar for adding the rule =rdfs_individual_of(Parent, <RDF_Type>)= to the =FROM= query.
+
 ******* Interpretation for *Child* Context (=SELECT= Clause)
+
 /Comparing to structure of =WITH= clause, *<RDF_Resource>* in =SELECT= Clause is always defined by the result of the query - Each is the valid instantiations of the *Child* variable./
+
 ******** *<RDF_Type>* is Undefined / =None=
+
 Leaving the *Child* type undefined could be compared to leaving *<RDF_Resource>* undefined in the *Parent* context. For query execution it is syntactic sugar for adding a similar rule, =rdfs_individual_of(Child, RDF_Type)=, to the last prolog query expression in the RPQuery (=WHERE= if it is defined, =FROM= if it is not.)
 
 This type doesn't constrain the query results but is available with them, creating an interface for defining operations to be executed using the given *Child* instance. This interface allows operations to be defined according to a given =QueryResult= type (instead of by the application context of the query.)
