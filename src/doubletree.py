@@ -236,7 +236,6 @@ class ViewList(ur.WidgetWrap):
 
 
     def selected(self):
-        log.debug(self.listbox.focus[1])
         return self.listbox.focus[1].get_text()[0]
 
 
@@ -387,7 +386,6 @@ def unhandled_input(k):
 
 
 def doubletree(rpq):
-
     window = Window(rpq, update_rate=1)
     event_loop = ur.MainLoop(window, palette, unhandled_input=unhandled_input)
     event_loop.set_alarm_in(1, window.update_dynamic)
@@ -398,13 +396,11 @@ if __name__ == "__main__":
     log = logging.getLogger('doubletree')
     log.setLevel(logging.DEBUG)
     log_handler = logging.FileHandler('dbltree.log', encoding='utf-8')
-    log_handler.setLevel(logging.DEBUG)
 
     log_handler.setFormatter(LogFormatter())
     log.addHandler(log_handler)
 
     log.info(f"\n\t\tDoubletree {datetime.now()}")
     rpq = RPQ('init.pl', log=log)
-
 
     doubletree(rpq)
