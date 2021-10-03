@@ -133,7 +133,6 @@ class RPQuery:
         return self._results
 
 
-
     def items(self):
         return self._query().items()
 
@@ -257,6 +256,18 @@ class RPQ:
             list(query)
             return True
         return False
+
+
+    def simple_query(self, query, unique=False):
+        results = self.uns_query(query)
+        if len(results) > 1:
+            results = [result.pop(next(iter(result))) for result in results]
+            if unique:
+                raise Exception(f"Multiple terms fit the query pattern:\n"
+                                f"{query}\nThey are:\n{results}\n")
+            return results
+        elif results:
+            return results[0].pop(next(iter(results[0])), None)
 
 
     def rassert(self, *statements):
@@ -442,187 +453,49 @@ def sort_uris(uri_list, log=None):
     return mb_uris + dg_uris + bc_uris
 
 
-def all_classes(pl, subject_class):
-    classes = [str(subject_class)]
-    while subject_class:
-        superclass = next(query_gen(pl,
-            ('rdf', (subject_class, RDFS.subClassOf, '_v:Superclass'))
-                                    ), None)
-        if superclass:
-            superclass = superclass[0]
+def all_classes(rpq, subj_class):
+    classes = [str(subj_class)]
+    while subj_class:
+        if (superclass := rpq.simple_query(
+                f"rdf('{subj_class}', '{RDFS.subClassOf}', X)", unique=True)):
             classes += [superclass]
-        subject_class = superclass
+        subj_class = superclass
     return classes
 
 
-def query(pl=None, query=None, unique=False, write=False, log=None):
-    """
-    Query the prolog rdf store.
-
-    query takes either of the following forms:
-    ((predicate1, (arg1, arg2, ...)),
-     (predicate2, (...)),
-     ...
-    )
-    or:
-    (predicate, (arg1, arg2, ...))
-    where each arg is either a term or variable (prefixed by '_v:').
-    RDF terms will be passed as their string value,
-    prolog terms as tuples are TODO
-    """
-    if not pl:
-        pl = Prolog()
-        pl.consult('init.pl')
-    if write:
-        list(pl.query('rdf_write'))
-    _, results = _query(pl, query, log=log)
-    result_list = []
-    for result in results:
-        result_list += [frozendict(result)]
-    if write:
-        list(pl.query('rdf_read'))
-    if log:
-        log.debug(f"{query}:\n\t{result_list}")
-    return set(result_list) if unique else result_list
-
-
-def query_gen(pl, query=None, result_type='tuple', unique=False, log=None):
-    varlist, results = _query(pl=pl, query=query, unique=unique, log=log)
-    for result_expr in results:
-        if log:
-            log.debug(result_expr)
-        if result_type == 'tuple':
-            result = []
-            for var in varlist:
-                if (var_result := result_expr.get(var, None)):
-                    if log:
-                        log.debug(var_result)
-                        log.debug(type(var_result))
-                    if isinstance(var_result, list):
-                        if log: log.debug('is list')
-                        for list_elem in var_result:
-                            elem_result = _utf8(list_elem)
-                            yield tuple([elem_result])
-                        return
-                    else:
-                        result += [_utf8(var_result)]
-            yield tuple(result)
-
-
-def fill_query(query, key_dict, log=None):
-    """
-    Returns a query which can be passed to query(). The query passed
-    to this function fits that form except may include variables
-    prefixed by '_k:'. These variables are replaced by the value in
-    key_dict corresponding to the variable name (excluding the '_k:')
-
-    therefore fill_query(('rdf', ('_k:Resource', RDF.type, '_v:Class')),
-                         {'Resource': XCAT.Artist})
-    will return ('rdf', (XCAT.Artist, RDF.type, '_v:Class'))
-    """
-    if log:
-        log.debug(query)
-    if isinstance(query[0], str):
-        query = [query]
-    new_query = []
-    for statement in query:
-        if isinstance(statement, tuple):
-            pred, args = new_statement = statement
-            for key, value in key_dict.items():
-                replaced = '_k:' + key
-                if args.count(replaced):
-                    index = args.index(replaced)
-                    new_statement = (pred,
-                        (args[:index] + tuple([value]) + args[index+1:]))
-            new_query += [new_statement]
-        elif callable(statement):
-            new_query += [statement]
-        elif log: log.warn(f'bad type: {type(statement)} {statement}')
-    return tuple(new_query)
-
-
-def _query(pl, query=None, unique=False, log=None):
-    if not query:
-        return [], []
-    if isinstance(query[0], str):
-        query = [query]
-    query_list = []
-    var_list = []
-    for pred, args in query:
-        arg_list = []
-        for arg in args:
-            if (isinstance(arg, str) and arg[:3] == '_v:'):
-                # and arg[0] == arg[0].upper()
-                var = arg[3:]
-                var_list += [var]
-                arg_list += [var]
-            elif (isinstance(arg, str) and '^^' in arg):
-                arg_list += [arg]
-            elif (isinstance(arg, list)):
-                arg_list += [f"{arg}"]
-            elif arg == '_':
-                arg_list += [arg]
-            elif isinstance(arg, str) and ('(' in arg or ')' in arg):
-                arg_list += [arg]
-            else:
-                arg_list += [f"'{arg}'"]
-        arg_str = ','.join(arg_list)
-        query_list += [pred + '(' + arg_str + ')']
-    query_str = ','.join(query_list)
-    if unique:
-        query_str = f"distinct({query_str})"
-    if log: log.debug(query_str)
-    return var_list, pl.query(query_str)
-
-
-def mixed_query(pl, query, log=None):
+def mixed_query(rpq, query, key, log=None):
     # gotta do more if we're returning antything
+    # TODO silly bad interface should be refactored
     partial_query = []
     for statement in query:
         if callable(statement):
             if partial_query:
-                res_args, res_kwargs = query_to_args(pl, partial_query, log)
+                res_args, res_kwargs = query_to_args(rpq, partial_query, log)
                 statement(*res_args, **res_kwargs)
             else:
                 statement()
             partial_query = []
-        elif isinstance(statement, tuple):
-            partial_query += [statement]
+        elif isinstance(statement, str):
+            partial_query += [statement.format(key)]
         elif log: log.warn(f'bad type: {type(statement)} {statement}')
     if partial_query:
-        res_args, res_kwargs = query_to_args(pl, partial_query, log)
+        res_args, res_kwargs = query_to_args(rpq, partial_query, log)
 
 
-def query_to_args(pl, query, log=None):
+def query_to_args(rpq, query, log=None):
     result_args = []
     result_kwargs = {}
-    varlist, results = _query(pl, query, log)
-    for result_expr in results:
-        if log: log.debug(result_expr)
-        for var in varlist:
-            if (var_result := result_expr.get(var, None)):
-                if isinstance(var_result, list):
-                    if log: log.debug(f'{var} is list')
-                    for list_elem in var_result:
-                        result_args += [_utf8(list_elem)]
-                else:
-                    result_kwargs[var] = _utf8(var_result)
+    results = rpq.uns_query(", ".join(query))
+    for result in results:
+        if log: log.debug(result)
+        for var, val in result.items():
+            if isinstance(val, list):
+                if log: log.debug(f'{var} is list: {val}')
+                for list_elem in val:
+                    result_args += [_utf8(list_elem)]
+            else:
+                result_kwargs[var] = _utf8(val)
     return result_args, result_kwargs
-
-
-def rdf_find(pl, triples, unique=True):
-    q = tuple((('rdf'), tuple(term if term else '_v:X' for term in triple))
-              for triple in triples)
-    result = query(pl, q)
-    if not result:
-        return None
-    elif len(result) > 1:
-        if unique:
-            raise Exception(f"Multiple terms fit the query pattern:\n{q}\n"
-                            f"They are:\n{result}\n")
-        else:
-            return [res['X'] for res in result]
-    return result[0]['X']
 
 
 def _utf8(var):
@@ -677,13 +550,6 @@ def TrackList(rpq, term_list, log=None):
     return seq
 
 
-def direct_subclasses(pl, resource=RDFS.Resource):
-    res = query(pl, [('rdf', ('_v:Subclass', RDFS.subClassOf, resource)),
-                     ('xcat_label', ('_v:Subclass', '_v:Label'))])
-    return sorted([(r['Subclass'], r['Label'].decode('utf-8')) for r in res],
-                  key=lambda x: x[1])
-
-
 def nometa_file_node(rpq, data):
     #TODO fix this bad gross interface
     file_path = xsd_type(data['path'], 'string')
@@ -697,7 +563,8 @@ def nometa_file_node(rpq, data):
     return file_URN
 
 
-def entries_to_dir(rpq, dir_hash, dirpath, dir_entries):#, subdir_hashes):
+def entries_to_dir(rpq, dir_hash, dirpath, dir_entries):
+    #, subdir_hashes):
     path = xsd_type(dirpath, 'string')
     dir_URN = B3[dir_hash]
     dir_hash = xsd_type(dir_hash, 'string')

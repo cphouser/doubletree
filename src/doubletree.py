@@ -16,7 +16,7 @@ from log_util import LogFormatter
 from mpd_player import MpdPlayer
 
 from rdf_util.namespaces import XCAT
-from rdf_util.pl import mixed_query, fill_query, all_classes, RPQ, VarList
+from rdf_util.pl import mixed_query, all_classes, RPQ, VarList
 from rdf_util.queries import (tree_views, instance_ops, class_hierarchy,
                               instance_properties, instance_is_property,
                               track_format_query, printed_resource)
@@ -152,10 +152,9 @@ class ClassView(ur.TreeListBox):
 
 
 class InstanceView(ur.TreeListBox):
-    def __init__(self, window, pl):
+    def __init__(self, window):
         super().__init__(ur.TreeWalker(ur.TreeNode(None, key="")))
         self.window = window
-        self.pl = pl
         self.i_class = None
         self.rpquery = None
 
@@ -167,9 +166,8 @@ class InstanceView(ur.TreeListBox):
             #log.debug(instance_ops.keys())
             selected = self.focus.get_node().get_key()
             if (operation := instance_ops.get(sel_type, {}).get(key)):
-                key_dict = {"key": selected}
                 log.debug(f"{selected} {key} {operation}")
-                mixed_query(self.pl, fill_query(operation, key_dict))
+                mixed_query(self.window.rpq, operation, selected, log=log)
                 self.window.frames['now'].reload()
                 return
             elif key == 'e':
@@ -200,12 +198,11 @@ class InstanceView(ur.TreeListBox):
 
 
 class ViewList(ur.ListBox):
-    def __init__(self, window, pl, root_class=RDFS.Resource):
+    def __init__(self, window, root_class=RDFS.Resource):
         walker = ur.SimpleFocusListWalker([])
         super().__init__(walker)
-        self.pl = pl
-        self.load_views(root_class)
         self.window = window
+        self.load_views(root_class)
 
 
     def keypress(self, size, key):
@@ -217,7 +214,7 @@ class ViewList(ur.ListBox):
 
     def load_views(self, leaf_class):
         #log.debug(leaf_class)
-        classes = all_classes(self.pl, leaf_class)
+        classes = all_classes(self.window.rpq, leaf_class)
         #log.debug(classes)
         views = []
         for rdfs_class in classes:
@@ -271,12 +268,13 @@ class InstanceOps(ur.Frame):
 
 
 class Window(ur.WidgetWrap):
-    def __init__(self, pl, rpq, update_rate=5):
+    def __init__(self, rpq, update_rate=5):
+        self.rpq = rpq
         classtreewin = ClassView(self, rpq.query(*class_hierarchy))
 
-        instancetreewin = InstanceView(self, pl)
+        instancetreewin = InstanceView(self)
 
-        instancelistwin = ViewList(self, pl)
+        instancelistwin = ViewList(self)
 
         operationgrid = InstanceOps(self, rpq)
 
@@ -298,8 +296,6 @@ class Window(ur.WidgetWrap):
             "ops": operationgrid,
             "now": operationview
         }
-        self.pl = pl
-        self.rpq = rpq
         ur.WidgetWrap.__init__(self, pile)
 
 
@@ -379,10 +375,8 @@ def unhandled_input(k):
 
 
 def doubletree(rpq):
-    pl = Prolog()
-    pl.consult('init.pl')
 
-    window = Window(pl, rpq, update_rate=1)
+    window = Window(rpq, update_rate=1)
     event_loop = ur.MainLoop(window, palette, unhandled_input=unhandled_input)
     event_loop.set_alarm_in(1, window.update_dynamic)
     event_loop.run()

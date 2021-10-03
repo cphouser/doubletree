@@ -1,7 +1,7 @@
 #+TITLE: Todo
 
 * queries
-** get rid of =rdf_find= and =mixed_query=
+** DONE get rid of =rdf_find= and =mixed_query=
 last two remnants of the old query api, can clean up pl.py immensely after
 
 ** new queries
@@ -14,7 +14,7 @@ last two remnants of the old query api, can clean up pl.py immensely after
 
 ** query api
 *** specify a python function as the view of a query
-*** document
+*** STRT document
 *** syntax for typechecking parent and children of a query
 - could use this to get rid of the 'root' in tree views
 

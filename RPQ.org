@@ -51,7 +51,7 @@ FROM <Prolog Query> [BY <Format Expression>]
 
 **** =SELECT= *Child* and =WITH= *Parent* - Prolog Variables
 *Parent* and *Child* aren't keywords but example variable names. Internally the names /parent/ and /child/ are still used to express these two contexts in the query syntax.
-***** Typing Syntax / Options and Contexts
+***** TODO Typing Syntax / Options and Contexts
 ****** Defined with *<RDF_Type>*
 internally is actually =rdfs_individual_of/2= so queries can make use of the subclass heirarchy
 ****** Leaving undefined with *None*
@@ -90,7 +90,7 @@ Doing this may also improve query performance?
 ***** =QueryResult= - Instantiated Result Class
 **** =RECURSIVE= and *<Descendant Queries>*
 ***** Lazily Generating Trees
-***** Lazy Query Disjunction
+***** TODO Lazy Query Disjunction
 Heterogenous types in the same tree level?
 
 *** Orphan Queries

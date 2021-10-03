@@ -15,7 +15,7 @@ from pyswip.prolog import Prolog
 from rdf_util import discogs
 from rdf_util.namespaces import B3, XCAT
 from rdf_util.b3 import file_hash, hashlist_hash
-from rdf_util.pl import (query, xsd_type, rdf_find, LDateTime, entries_to_dir,
+from rdf_util.pl import (xsd_type, LDateTime, entries_to_dir,
                          TrackList, rdf_unify, RPQ, nometa_file_node)
 from log_util import LogFormatter
 
@@ -41,7 +41,7 @@ def mb_url(key, value):
         return (base + 'release/' + str(value))
 
 
-def release_from_beets(rpq, pl, release_uri, source, _beets):
+def release_from_beets(rpq, release_uri, source, _beets):
     release_lbl = xsd_type(_beets['album'], 'string')
     rpq.rassert(*[
         f"rdf_assert('{release_uri}', '{RDF.type}', '{XCAT.Release}')",
@@ -72,9 +72,9 @@ def release_from_beets(rpq, pl, release_uri, source, _beets):
         print("what source?", source, release_uri)
 
     if not albumartist:
-        albumartist = (rdf_find(pl, ((None, RDF.type, XCAT.Artist),
-                                     (None, XCAT.name, albumartist_lbl)),
-                                unique=False) or rpq.new_bnode())
+        albumartist = rpq.simple_query(
+                f"rdf(X, '{RDF.type}', '{XCAT.Artist}'), "
+                f"rdf(X, '{XCAT.Name}', {albumartist_lbl})") or rpq.new_bnode()
         if isinstance(albumartist, list):
             albumartist = rdf_unify(rpq, albumartist, log=log)
 
@@ -94,7 +94,7 @@ def release_from_beets(rpq, pl, release_uri, source, _beets):
             f"'{published_in}')"
         )
 
-    add_genres(pl, rpq, release_uri, _beets)
+    add_genres(rpq, release_uri, _beets)
 
     if label_uri:
         label_lbl = xsd_type(_beets['label'], 'string')
@@ -111,7 +111,7 @@ def release_from_beets(rpq, pl, release_uri, source, _beets):
                         f" {cat_num})")
 
 
-def track_from_beets(rpq, pl, beets_lib, data):
+def track_from_beets(rpq, beets_lib, data):
     # check if track is already in db
 
     global release_dict
@@ -151,10 +151,9 @@ def track_from_beets(rpq, pl, beets_lib, data):
         if data['label'] == data['artist']:
             artist = data['mb_artistid']
         else:
-            artist = (rdf_find(pl,
-                               ((None, RDF.type, XCAT.Artist),
-                                (None, XCAT.name, artist_lbl)), unique=False)
-                      or rpq.new_bnode())
+            artist = rpq.simple_query(
+                    f"rdf(X, '{RDF.type}', '{XCAT.Artist}'), "
+                    f"rdf(X, '{XCAT.name}', {artist_lbl})") or rpq.new_bnode()
             if isinstance(artist, list):
                 artist = rdf_unify(rpq, artist, log=log)
         release = data['mb_albumid']
@@ -181,13 +180,13 @@ def track_from_beets(rpq, pl, beets_lib, data):
     ])
 
     ## Add the genres
-    add_genres(pl, rpq, track, data)
+    add_genres(rpq, track, data)
 
     ## Add the release
     if (not rpq.boolquery(f"rdf('{release}', '{RDF.type}', '{XCAT.Release}')")
             and data['album_id']):
         beetz_release = beets_lib.get_album(data['album_id'])
-        release_from_beets(rpq, pl, release, source, beetz_release)
+        release_from_beets(rpq, release, source, beetz_release)
 
     tracklist = release_dict.get(release, [])
     tracklist.append((data['track'], track))
@@ -216,7 +215,7 @@ def track_from_beets(rpq, pl, beets_lib, data):
     return file_URN
 
 # f"rdf_assert('{}', '{}', '{}')"
-def add_genres(pl, rpq, subj, beets_dict):
+def add_genres(rpq, subj, beets_dict):
     genres, styles, unmatched = discogs.genre_styles(get_genre_vals(beets_dict),
                                                      get_style_vals(beets_dict))
     assertion_list = []
@@ -241,9 +240,9 @@ def add_genres(pl, rpq, subj, beets_dict):
         rpq.rassert(*assertion_list)
     for unmatched_name in unmatched:
         style_name = xsd_type(unmatched_name, 'string')
-        style_uri = (rdf_find(pl, ((None, RDF.type, XCAT.Style),
-                                   (None, XCAT.name, style_name)),
-                              unique=False) or rpq.new_bnode())
+        style_uri = rpq.simple_query(
+                f"rdf(X, '{RDF.type}', '{XCAT.Style}')",
+                f"rdf(X, '{XCAT.name}', {style_name})") or rpq.new_bnode()
         if isinstance(style_uri, list):
             style_uri = rdf_unify(rpq, style_uri, log=log)
         rpq.rassert(*[
@@ -353,8 +352,6 @@ if __name__ == "__main__":
 
     log.info(f"\n\t\tBeets to RDF {datetime.now()}")
     # initialize prolog store
-    pl = Prolog()
-    pl.consult('init.pl')
     rpq = RPQ('init.pl', write_mode=True)#, log=log)
 
     # load files from directory
@@ -385,7 +382,7 @@ if __name__ == "__main__":
         #if not idx % 10:
         #    log.debug(f"importing directory {idx} of {len(dirpaths)}")
         for entry in in_db.values():
-            dir_entries += [track_from_beets(rpq, pl, beets_lib, entry)]
+            dir_entries += [track_from_beets(rpq, beets_lib, entry)]
         for entry in not_in_db.values():
             dir_entries += [nometa_file_node(rpq, entry)]
         entries_to_dir(rpq, dir_hash, dir, dir_entries)#, subdir_hashes)
