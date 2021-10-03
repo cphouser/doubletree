@@ -63,7 +63,7 @@ any better categories for abstracting these for using stuff interchangably?
 *** should have generic way to create new instance (of anything?)
 ** investigate running a subterminal esp w/ a subTUI
 ** window management
-*** move instance view list into collapsible pile above instance view
+*** DONE move instance view list into collapsible pile above instance view
 *** some scheme for managing windows without needing to be visible tiles in interface
 *** resizing/focusing should apply w/ a resizableWindow mixin?
 *** windows should be able to load other windows?

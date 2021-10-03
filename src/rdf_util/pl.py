@@ -98,9 +98,9 @@ class RPQuery:
                 #if self.log: self.log.debug(len(where_query))
                 if (where_result := next(where_query, False)) is not False:
                     result.update(where_result)
+                    #if self.log: self.log.debug(where_result)
                 elif not self.null:
                     del results[k]
-                if self.log: self.log.debug(where_result)
                 list(where_query)
 
         self._results = IndexedOrderedDict()

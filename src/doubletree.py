@@ -197,38 +197,52 @@ class InstanceView(ur.TreeListBox):
         self.new_tree()
 
 
-class ViewList(ur.ListBox):
+class ViewList(ur.WidgetWrap):
     def __init__(self, window, root_class=RDFS.Resource):
-        walker = ur.SimpleFocusListWalker([])
-        super().__init__(walker)
+        walker = ur.SimpleFocusListWalker(
+                [ur.Columns([ur.Text("-"), ur.Text("-")])])
+        self.listbox = ur.ListBox(walker)
+        self.summary = ur.Columns([("pack", ur.SelectableIcon("\u2261 ")),
+                                   ur.Text(self.selected())])
+        super().__init__(self.summary)
         self.window = window
         self.load_views(root_class)
 
 
     def keypress(self, size, key):
         if key == "enter":
-            self.window.load_view(tree_views[self.selected()]['query'])
+            self.window.load_view(tree_views[self.listbox.selected()]['query'])
+        elif key == "tab":
+            if self._w == self.summary:
+                height = min(3, len(self.listbox.body))
+                self._w = ur.BoxAdapter(self.listbox, height)
+            else:
+                self.load_summary()
         elif (res := super().keypress(size, key)):
             return res
 
 
     def load_views(self, leaf_class):
-        #log.debug(leaf_class)
         classes = all_classes(self.window.rpq, leaf_class)
-        #log.debug(classes)
         views = []
         for rdfs_class in classes:
             for view_name, view in tree_views.items():
                 if str(view['root']) == rdfs_class:
                     views.append(view_name)
-        #log.debug(views)
-        self.body = ur.SimpleFocusListWalker(
-            [ur.SelectableIcon(view) for view in views]
-        )
+        self.listbox.body = ur.SimpleFocusListWalker(
+            [ur.Columns([("pack", ur.SelectableIcon('- ')),
+                         ur.Text(view)]) for view in views])
+        self.load_summary()
 
 
     def selected(self):
-        return self.focus.get_text()[0]
+        log.debug(self.listbox.focus[1])
+        return self.listbox.focus[1].get_text()[0]
+
+
+    def load_summary(self):
+        self.summary[1].set_text(self.selected())
+        self._w = self.summary
 
 
 class RPQ_ListElem(ur.Columns):
@@ -240,13 +254,14 @@ class RPQ_ListElem(ur.Columns):
 
 
 class InstanceOps(ur.Frame):
-    def __init__(self, window, rpq):
+    def __init__(self, window):
+        self.window = window
         self.header = ur.Padding(ur.Text("-"), align='center', width='pack')
         self.has_props = ur.ListBox(ur.SimpleFocusListWalker([]))
         self.is_props = ur.ListBox(ur.SimpleFocusListWalker([]))
-        self.prop_query = rpq.query(*instance_properties)
-        self.rev_prop_query = rpq.query(*instance_is_property)
-        self.instance_q = rpq.query(*printed_resource)
+        self.prop_query = window.rpq.query(*instance_properties)
+        self.rev_prop_query = window.rpq.query(*instance_is_property)
+        self.instance_q = window.rpq.query(*printed_resource)
         super().__init__(ur.Columns([self.is_props, self.has_props]),
                          self.header)
 
@@ -271,28 +286,25 @@ class Window(ur.WidgetWrap):
     def __init__(self, rpq, update_rate=5):
         self.rpq = rpq
         classtreewin = ClassView(self, rpq.query(*class_hierarchy))
-
         instancetreewin = InstanceView(self)
-
-        instancelistwin = ViewList(self)
-
-        operationgrid = InstanceOps(self, rpq)
+        instancelistview = ViewList(self)
+        operationgrid = InstanceOps(self)
 
         self.format_query = rpq.query(*track_format_query)
         self.track_cache = {}
         operationview = MpdPlayer(self.format_track, log=log)
 
-        top_frame = ur.Columns([('fixed', 30, classtreewin),
-                                ('fixed', 30, instancelistwin),
-                                operationgrid])
-        bottom_frame = ur.Columns([instancetreewin, operationview])
+        instancepile = ur.Pile([("pack", instancelistview), instancetreewin])
+        top_frame = ur.Columns([('fixed', 30, classtreewin), operationgrid])
+        bottom_frame = ur.Columns([instancepile,
+                                   ("weight", 2, operationview)])
         pile = ur.Pile([top_frame, bottom_frame])
 
         self.update_rate = update_rate
         self.frames = {
             "class": classtreewin,
             "browse": instancetreewin,
-            "view": instancelistwin,
+            "view": instancelistview,
             "ops": operationgrid,
             "now": operationview
         }

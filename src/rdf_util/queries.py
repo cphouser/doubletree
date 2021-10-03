@@ -54,7 +54,7 @@ tree_views = {
         'query': [
             ['Artist',
              f'rdfs_individual_of(Artist, Class), xcat_print(Artist, Name)',
-             '{Name} <{Artist}>',
+             '{Name}',
              ('Class', None),
              f'xcat_has_releases(Artist, _)',
              dict(child_type=False)
@@ -62,12 +62,12 @@ tree_views = {
             ['Album',
              f"rdf(Artist, '{XCAT.made}', Album), xcat_print(Album, Name), "
              f"rdf(Album, '{RDF.type}', '{XCAT.Release}')",
-             '{Name} <{Album}>',
+             '{Name}',
              ('Artist', None)
             ],
             ['[Track]',
              "xcat_tracklist(Release, Track)",
-             '{TLabel} <{Track}>',
+             '{TLabel}',
              ('Release', None),
              f"xcat_print(Track, TLabel)",
              dict(q_by=False)],
