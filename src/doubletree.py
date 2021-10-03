@@ -252,33 +252,42 @@ class RPQ_ListElem(ur.Columns):
         super().__init__(widget_list)
 
 
-class InstanceOps(ur.Frame):
+class InstanceOps(ur.WidgetWrap):
     def __init__(self, window):
         self.window = window
-        self.header = ur.Padding(ur.Text("-"), align='center', width='pack')
         self.has_props = ur.ListBox(ur.SimpleFocusListWalker([]))
         self.is_props = ur.ListBox(ur.SimpleFocusListWalker([]))
         self.prop_query = window.rpq.query(*instance_properties)
         self.rev_prop_query = window.rpq.query(*instance_is_property)
-        self.instance_q = window.rpq.query(*printed_resource)
-        super().__init__(ur.Columns([self.is_props, self.has_props]),
-                         self.header)
+        super().__init__(ur.Columns([self.is_props, self.has_props])),
+                      #   self.header)
 
 
     def load_instance(self, instance_key):
         prop_query = self.prop_query.copy(instance_key)
         rev_prop_query = self.rev_prop_query.copy(instance_key)
-        #log.debug(prop_query)
-        #log.debug(prop_query.keys())
 
         subj_of = [RPQ_ListElem(obj, res, reverse=True)
                    for obj, res in prop_query.items()]
         obj_of = [RPQ_ListElem(sbj, res) for sbj, res in rev_prop_query.items()]
+
         self.has_props.body = ur.SimpleFocusListWalker(subj_of)
         self.is_props.body = ur.SimpleFocusListWalker(obj_of)
-        self.instance = self.instance_q.copy(instance_key)
-        self.header.original_widget = ur.Text(str(self.instance.first_item()))
-        log.debug(self.header.width)
+
+
+class Header(ur.Columns):
+    def __init__(self, window):
+        self.resource_print_q = window.rpq.query(*printed_resource)
+        self.resource_widget = ur.Padding(ur.Text("-"),
+                                          align='center', width='pack')
+        self.selected_resource = None #???
+        super().__init__([self.resource_widget])
+
+
+    def select_resource(self, instance_key):
+        self.selected_resource = self.resource_print_q.copy(instance_key)
+        self.resource_widget.original_widget = ur.Text(
+                str(self.selected_resource.first_item()))
 
 
 class Window(ur.WidgetWrap):
@@ -288,6 +297,7 @@ class Window(ur.WidgetWrap):
         instancetreewin = InstanceView(self)
         instancelistview = ViewList(self)
         operationgrid = InstanceOps(self)
+        header = Header(self)
 
         self.format_query = rpq.query(*track_format_query)
         self.track_cache = {}
@@ -298,16 +308,18 @@ class Window(ur.WidgetWrap):
         bottom_frame = ur.Columns([instancepile,
                                    ("weight", 2, operationview)])
         pile = ur.Pile([top_frame, bottom_frame])
+        window = ur.Frame(pile, header=header)
 
         self.update_rate = update_rate
         self.frames = {
+            "head": header,
             "class": classtreewin,
             "browse": instancetreewin,
             "view": instancelistview,
             "ops": operationgrid,
             "now": operationview
         }
-        ur.WidgetWrap.__init__(self, pile)
+        ur.WidgetWrap.__init__(self, window)
 
 
     def keypress(self, size, key):
@@ -338,6 +350,7 @@ class Window(ur.WidgetWrap):
 
     def load_instances(self, sel_class):
         self.frames["view"].load_views(sel_class)
+        self.frames['head'].select_resource(sel_class)
         log.debug(self.frames["view"].selected())
         view = self.rpq.querylist(
             tree_views[self.frames["view"].selected()]['query']
@@ -347,6 +360,7 @@ class Window(ur.WidgetWrap):
 
 
     def load_relations(self, sel_instance):
+        self.frames['head'].select_resource(sel_instance)
         self.frames['ops'].load_instance(sel_instance)
 
 

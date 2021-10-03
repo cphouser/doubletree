@@ -14,7 +14,15 @@ more or less what it do:
 - gives a terminal interface that browses resources in the database. Trees form the basis of this interface. an API on top of the prolog store accepts queries which can be rendered directly as trees in the interface. queries can be selected interactively and are easy to create without modifying the interface. the api closely mimics directly querying the prolog store interactively.
 - uses mpd to play music and features an window in the terminal interface to control the mpd queue. basic commands to be documented but =mpd_player.py= is short and clean and can be integrated into any urwid interface (for use without an rdf database.) songs in the instance window of the the interface can currently be added to the mpd queue by artist, album, and individual song.
 - each song play thru mpd can be added as an 'xcat:accessed_during' property automatically with a systemd daemon.
+*** actually tho
+this is really a knowledge graph explorer built on SWI-Prolog's Semantic Web library. It works with data structured using RDF and RDFS and relies on XSD Typed literals.
+**** TODO link to some good semantic web resources
+**** TODO good application design is for nerds but there's a nice MVC model in this and explaining that is probably a good idea for enabling others to expand it like i do
 ** quickstart
+*Note: this /quickstart/ is more appropriately thought of as a bootstrapping guide for recreating my setup with a new system and new data. at some point I might make a docker container or tarball that has a demo knowledge graph for checking out the application easily*
+
+*Additional Note: this project is still somewhat in the /prototype/ stage of development and I haven't put much thought into deploying it outside that context. these instructions should be accessible to a relatively new linux user with basic understanding of a terminal environment but will speed through stuff like linux audio, python virtual environments, and systemd services. idk the best places to start reading about these but they're all worth learning about.*
+
 here are the minimal instructions for setting up on Debian Bullseye. Probably will work on other debian-based Linux distros like Ubuntu or Mint (idk, lmk?).
 Windows and OSX installation seems hypothetically possible? Designed to run on a modest linux server, a modern raspberry pi will probably do just fine.
 
@@ -22,11 +30,15 @@ Windows and OSX installation seems hypothetically possible? Designed to run on a
 Tested with these versions, mileage may vary for anything older (will definitely break on anything older than python 3.8)
 
 | Python         |  3.9.2 |
-| SWI-Prolog     | 8.3.22 |
+| SWI-Prolog     |  8.2.4 |
 | mpd            | 0.22.4 |
 | mpc (optional) |   0.33 |
 
+*Note: I'm devloping on SWI-Prolog 8.3.22 but also regularly using 8.2.4 which is the latest version currently accessible from the Debian Stable apt repository.*
+
 The following steps install needed dependencies. Non python programs are installed at the system level, python dependencies are installed to a virtual environment in the project directory. This is useful for a "development environment" where scripts and the interactive python shell can be used to interact with the RDF database. The downside for regular use is that the virtual environment must be sourced in the terminal we're running in.
+
+*Important Note: Really don't recommend installing the python dependencies at a system level. a growing number of packages are installed from pinned git commits instead of actual pip releases which seems likely to wreak dependency havoc on a system level python install.*
 
 #+BEGIN_SRC sh
 sudo apt install mpd mpc swi-prolog # non python dependencies

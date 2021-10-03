@@ -1,5 +1,9 @@
 #+TITLE: Todo
 
+* dates (browsing)
+** assert a loose date w/ the xcat_same_* functions?
+** ldatetime tree instances should reflect their printed precision even if there isn't a [persistient] URIRef in the store for it
+** operation window has all dates within that ldatetime spec
 * queries
 ** DONE get rid of =rdf_find= and =mixed_query=
 last two remnants of the old query api, can clean up pl.py immensely after
@@ -65,6 +69,7 @@ any better categories for abstracting these for using stuff interchangably?
 ** window management
 *** DONE move instance view list into collapsible pile above instance view
 *** some scheme for managing windows without needing to be visible tiles in interface
+
 *** resizing/focusing should apply w/ a resizableWindow mixin?
 *** windows should be able to load other windows?
 *** move stuff around dynamically ?
