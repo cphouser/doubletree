@@ -89,14 +89,23 @@ tree_views = {
              dict(unique=True, q_by="{MInt}")],
             ['DateTime',
              "xcat_same_month(ParentDT, DateTime), "
-             f"rdf(DateTime, '{XCAT.day}', Day), xcat_print(DateTime, DLabel)",
+             f"rdf(DateTime, '{XCAT.day}', Day), "
+             "xcat_print_day(DateTime, DLabel)",
              ("{DLabel}"),
              ('ParentDT', None),
              dict(unique=True, q_by='{DateTime}')],
             ['DateTime',
              "xcat_same_day(ParentDT, DateTime), "
-             f"rdf(DateTime, '{XCAT.hour}', Hour), xcat_print(DateTime, HLabel)",
-             ("{HLabel}"),
+             f"rdf(DateTime, '{XCAT.hour}', Hour),"
+             " xcat_print_hour(DateTime, HLabel)",
+             ("{HLabel}:00"),
+             ('ParentDT', None),
+             dict(unique=True, q_by='{DateTime}')],
+            ['DateTime',
+             "xcat_same_hour(ParentDT, DateTime),"
+             " rdf(DateTime, '{XCAT.minute}', Minute),"
+             " xcat_print(DateTime, DTLabel)",
+             ("{DTLabel}"),
              ('ParentDT', None),
              dict(unique=True, q_by='{DateTime}')],
         ], 'root': XCAT.LDateTime
