@@ -170,10 +170,9 @@ class InstanceView(ur.TreeListBox):
                 mixed_query(self.window.rpq, operation, selected, log=log)
                 self.window.frames['now'].reload()
                 return
-            elif key == 'e':
+            elif key == 'enter':
                 self.window.load_relations(selected)
                 return
-
         if (res := super().keypress(size, key)):
             return res
 
@@ -246,48 +245,68 @@ class ViewList(ur.WidgetWrap):
 
 class RPQ_ListElem(ur.Columns):
     def __init__(self, key, query_result, reverse=False):
-        widget_list = [('fixed', 1, ur.SelectableIcon(' ')),
+        widget_list = [('fixed', 1, ur.SelectableIcon('-')),
                        ur.Text(str(query_result))]
         self.elem = key
         super().__init__(widget_list)
 
 
-class InstanceOps(ur.WidgetWrap):
+class RelatedTerms(ur.WidgetWrap):
     def __init__(self, window):
         self.window = window
         self.has_props = ur.ListBox(ur.SimpleFocusListWalker([]))
         self.is_props = ur.ListBox(ur.SimpleFocusListWalker([]))
         self.prop_query = window.rpq.query(*instance_properties)
         self.rev_prop_query = window.rpq.query(*instance_is_property)
-        super().__init__(ur.Columns([self.is_props, self.has_props])),
-                      #   self.header)
+        super().__init__(ur.Columns([self.is_props, self.has_props]))
+
+
+    def keypress(self, size, key):
+        if key == "enter":
+            if self._w.focus.focus:
+                self.window.load_relations(self._w.focus.focus.elem)
+        elif (res := super().keypress(size, key)):
+            return res
 
 
     def load_instance(self, instance_key):
         prop_query = self.prop_query.copy(instance_key)
         rev_prop_query = self.rev_prop_query.copy(instance_key)
-
         subj_of = [RPQ_ListElem(obj, res, reverse=True)
                    for obj, res in prop_query.items()]
         obj_of = [RPQ_ListElem(sbj, res) for sbj, res in rev_prop_query.items()]
-
         self.has_props.body = ur.SimpleFocusListWalker(subj_of)
         self.is_props.body = ur.SimpleFocusListWalker(obj_of)
+
+
+class InstanceOps(ur.Frame):
+    def __init__(self, window):
+        self.window_menu = ur.Text("-related terms-")
+        related_terms = RelatedTerms(window)
+        self.body_container = ur.WidgetPlaceholder(related_terms)
+        super().__init__(self.body_container, self.window_menu)
+
+
+    def load_instance(self, instance_key):
+        self.body_container.original_widget.load_instance(instance_key)
 
 
 class Header(ur.Columns):
     def __init__(self, window):
         self.resource_print_q = window.rpq.query(*printed_resource)
-        self.resource_widget = ur.Padding(ur.Text("-"),
-                                          align='center', width='pack')
+        self.resource_widget = ur.Text("-None-")
         self.selected_resource = None #???
-        super().__init__([self.resource_widget])
+        self.window_focus = ur.Text("[FOCUS]")
+        left = [self.window_focus]
+        right = [ur.Padding(ur.Text("&&&&"), align="right", width="pack")]
+        center = [ur.Padding(ur.Text("Selected Resource: "), align='right',
+                             width='pack'), self.resource_widget]
+        super().__init__(left + center + right)
 
 
     def select_resource(self, instance_key):
         self.selected_resource = self.resource_print_q.copy(instance_key)
-        self.resource_widget.original_widget = ur.Text(
-                str(self.selected_resource.first_item()))
+        self.resource_widget.set_text(str(self.selected_resource.first_item()))
 
 
 class Window(ur.WidgetWrap):
@@ -307,7 +326,8 @@ class Window(ur.WidgetWrap):
         top_frame = ur.Columns([('fixed', 30, classtreewin), operationgrid])
         bottom_frame = ur.Columns([instancepile,
                                    ("weight", 2, operationview)])
-        pile = ur.Pile([top_frame, bottom_frame])
+        pile = ur.Pile([top_frame,
+                        ("weight", 2, bottom_frame)])
         window = ur.Frame(pile, header=header)
 
         self.update_rate = update_rate
@@ -357,6 +377,7 @@ class Window(ur.WidgetWrap):
         )
         #log.debug(view)
         self.frames["browse"].new_tree(sel_class, view)
+        self.frames['ops'].load_instance(sel_class)
 
 
     def load_relations(self, sel_instance):

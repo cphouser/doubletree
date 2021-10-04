@@ -126,9 +126,9 @@ track_format_query = [
 
 instance_ops = {
     str(XCAT.Recording): {
-        'enter': ("xcat_filepath('{}', Path)", mpd_util.add_to_list),
+        'a': ("xcat_filepath('{}', Path)", mpd_util.add_to_list),
         },
     str(XCAT.Release): {
-        'enter': ("xcat_tracklist_filepaths('{}', Paths)", mpd_util.add_to_list)
+        'a': ("xcat_tracklist_filepaths('{}', Paths)", mpd_util.add_to_list)
         }
     }
