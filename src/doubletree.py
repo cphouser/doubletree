@@ -151,20 +151,24 @@ class ClassView(ur.TreeListBox):
             return res
 
 
-class InstanceView(ur.TreeListBox):
+class InstanceView(ur.Pile):
     def __init__(self, window):
-        super().__init__(ur.TreeWalker(ur.TreeNode(None, key="")))
         self.window = window
+        self.tree = ur.TreeListBox(ur.TreeWalker(ur.TreeNode(None, key="")))
+        self.views = ViewList(self)
+
         self.i_class = None
         self.rpquery = None
+        super().__init__([("pack", self.views), self.tree])
 
 
     def keypress(self, size, key):
-        if self.focus.get_node().get_value():
-            sel_type = self.focus.get_node().get_value().type
+        if self.focus == self.tree:
+            focused = self.tree.focus.get_node()
+            sel_type = focused.get_value().type
             #log.debug(sel_type)
             #log.debug(instance_ops.keys())
-            selected = self.focus.get_node().get_key()
+            selected = focused.get_key()
             if (operation := instance_ops.get(sel_type, {}).get(key)):
                 log.debug(f"{selected} {key} {operation}")
                 mixed_query(self.window.rpq, operation, selected, log=log)
@@ -186,32 +190,34 @@ class InstanceView(ur.TreeListBox):
         if self.rpquery:
             log.debug(self.rpquery)
             first_node = RPQ_Node(self.rpquery, self.rpquery.keys()[0], None)
-            self.body = ur.TreeWalker(first_node)
+            self.tree.body = ur.TreeWalker(first_node)
         else:
             log.warning(self.rpquery)
 
 
-    def new_view(self, view):
-        self.instance_view = view
-        self.new_tree()
+    def load_instances(self, sel_class):
+        self.views.load_views(sel_class)
+        self.load_view(sel_class)
 
 
-class ViewList(ur.WidgetWrap):
-    def __init__(self, window, root_class=RDFS.Resource):
+    def load_view(self, sel_class=None):
+        view_query = self.window.rpq.querylist(
+                tree_views[self.views.selected()]['query'])
+        self.new_tree(sel_class, view_query)
+
+
+class ExpandingList(ur.WidgetWrap):
+    def __init__(self):
         walker = ur.SimpleFocusListWalker(
                 [ur.Columns([ur.Text("-"), ur.Text("-")])])
         self.listbox = ur.ListBox(walker)
         self.summary = ur.Columns([("pack", ur.SelectableIcon("\u2261 ")),
                                    ur.Text(self.selected())])
         super().__init__(self.summary)
-        self.window = window
-        self.load_views(root_class)
 
 
     def keypress(self, size, key):
-        if key == "enter":
-            self.window.load_view(tree_views[self.listbox.selected()]['query'])
-        elif key == "tab":
+        if key == "tab":
             if self._w == self.summary:
                 height = min(3, len(self.listbox.body))
                 self._w = ur.BoxAdapter(self.listbox, height)
@@ -221,16 +227,10 @@ class ViewList(ur.WidgetWrap):
             return res
 
 
-    def load_views(self, leaf_class):
-        classes = all_classes(self.window.rpq, leaf_class)
-        views = []
-        for rdfs_class in classes:
-            for view_name, view in tree_views.items():
-                if str(view['root']) == rdfs_class:
-                    views.append(view_name)
+    def load_list(self, str_list):
         self.listbox.body = ur.SimpleFocusListWalker(
             [ur.Columns([("pack", ur.SelectableIcon('- ')),
-                         ur.Text(view)]) for view in views])
+                         ur.Text(string)]) for string in str_list])
         self.load_summary()
 
 
@@ -241,6 +241,30 @@ class ViewList(ur.WidgetWrap):
     def load_summary(self):
         self.summary[1].set_text(self.selected())
         self._w = self.summary
+
+
+class ViewList(ExpandingList):
+    def __init__(self, frame, root_class=RDFS.Resource):
+        super().__init__()
+        self.frame = frame
+        self.load_views(root_class)
+
+
+    def keypress(self, size, key):
+        if key == "enter":
+            self.frame.load_view()
+        elif (res := super().keypress(size, key)):
+            return res
+
+
+    def load_views(self, leaf_class):
+        classes = all_classes(self.frame.window.rpq, leaf_class)
+        views = []
+        for rdfs_class in classes:
+            for view_name, view in tree_views.items():
+                if str(view['root']) == rdfs_class:
+                    views.append(view_name)
+        self.load_list(views)
 
 
 class RPQ_ListElem(ur.Columns):
@@ -312,34 +336,27 @@ class Header(ur.Columns):
 class Window(ur.WidgetWrap):
     def __init__(self, rpq, update_rate=5):
         self.rpq = rpq
-        classtreewin = ClassView(self, rpq.query(*class_hierarchy))
-        instancetreewin = InstanceView(self)
-        instancelistview = ViewList(self)
-        operationgrid = InstanceOps(self)
-        header = Header(self)
-
         self.format_query = rpq.query(*track_format_query)
         self.track_cache = {}
-        operationview = MpdPlayer(self.format_track, log=log)
-
-        instancepile = ur.Pile([("pack", instancelistview), instancetreewin])
-        top_frame = ur.Columns([('fixed', 30, classtreewin), operationgrid])
-        bottom_frame = ur.Columns([instancepile,
-                                   ("weight", 2, operationview)])
-        pile = ur.Pile([top_frame,
-                        ("weight", 2, bottom_frame)])
-        window = ur.Frame(pile, header=header)
-
         self.update_rate = update_rate
+
+        header = Header(self)
+        classtreewin = ClassView(self, rpq.query(*class_hierarchy))
+        instancetree = InstanceView(self)
+        operationgrid = InstanceOps(self)
+        operationview = MpdPlayer(self.format_track, log=log)
         self.frames = {
             "head": header,
             "class": classtreewin,
-            "browse": instancetreewin,
-            "view": instancelistview,
+            "browse": instancetree,
             "ops": operationgrid,
             "now": operationview
         }
-        ur.WidgetWrap.__init__(self, window)
+        top_frame = ur.Columns([('fixed', 30, classtreewin), operationgrid])
+        bottom_frame = ur.Columns([instancetree, ("weight", 2, operationview)])
+        pile = ur.Pile([top_frame, ("weight", 2, bottom_frame)])
+
+        ur.WidgetWrap.__init__(self, ur.Frame(pile, header=header))
 
 
     def keypress(self, size, key):
@@ -369,14 +386,8 @@ class Window(ur.WidgetWrap):
 
 
     def load_instances(self, sel_class):
-        self.frames["view"].load_views(sel_class)
         self.frames['head'].select_resource(sel_class)
-        log.debug(self.frames["view"].selected())
-        view = self.rpq.querylist(
-            tree_views[self.frames["view"].selected()]['query']
-        )
-        #log.debug(view)
-        self.frames["browse"].new_tree(sel_class, view)
+        self.frames['browse'].load_instances(sel_class)
         self.frames['ops'].load_instance(sel_class)
 
 
@@ -385,11 +396,6 @@ class Window(ur.WidgetWrap):
         self.frames['ops'].load_instance(sel_instance)
 
 
-    def load_view(self, sel_view):
-        view_query = self.rpq.querylist(sel_view)
-        #log.debug(view_query)
-        self.frames["browse"].new_tree(query=view_query)
-
 
     def format_track(self, dictlike):
         if (path := dictlike.get('file')):
@@ -397,11 +403,11 @@ class Window(ur.WidgetWrap):
                 dictlike = cached
             else:
                 results = self.format_query.copy(path).first_item()
-                log.debug(results)
                 dictlike['title'] = results.get("Recording", ".")
                 dictlike['artist'] = results.get("Artist", ".")
                 dictlike['album'] = results.get("Release", ".")
                 dictlike['year'] = results.get("Year", ".")
+                self.track_cache[path] = dictlike
         return {
             'key': dictlike.get('id', ""),
             'track': dictlike.get('title', ""),
