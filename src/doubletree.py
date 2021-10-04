@@ -17,10 +17,32 @@ from mpd_player import MpdPlayer
 
 from rdf_util.namespaces import XCAT
 from rdf_util.pl import mixed_query, all_classes, RPQ, VarList
-from rdf_util.rpq_widgets import RPQ_Node
+from rdf_util.rpq_widgets import RPQ_Node, RPQ_ListElem
 from rdf_util.queries import (tree_views, instance_ops, class_hierarchy,
                               instance_properties, instance_is_property,
                               track_format_query, printed_resource)
+
+class Header(ur.Columns):
+    def __init__(self, window):
+        self.resource_print_q = window.rpq.query(*printed_resource)
+        self.resource_widget = ur.Text("-None-")
+        self.selected_resource = None #???
+        self.window_focus = ur.Text("[FOCUS]")
+        left = [self.window_focus]
+        right = [ur.Padding(ur.Text("&&&&"), align="right", width="pack")]
+        center = [ur.Padding(ur.Text("Selected Resource: "), align='right',
+                             width='pack'), self.resource_widget]
+        super().__init__(left + center + right)
+
+
+    def select_resource(self, instance_key):
+        self.selected_resource = self.resource_print_q.copy(instance_key)
+        self.resource_widget.set_text(str(self.selected_resource.first_item()))
+
+
+    def update_focus_text(self, focus):
+        self.window_focus.set_text(f"[{focus}]")
+
 
 class ClassView(ur.TreeListBox):
     def __init__(self, window, rpquery):
@@ -88,6 +110,26 @@ class InstanceView(ur.Pile):
         view_query = self.window.rpq.querylist(
                 tree_views[self.views.selected()]['query'])
         self.new_tree(sel_class, view_query)
+
+
+class InstanceOps(ur.Pile):
+    def __init__(self, window):
+        self.window = window
+        self.window_list = {"Related Terms": RelatedTerms,
+                            "Fill Tracklist": None}
+        self.window_menu = OperationList(self, self.window_list.keys())
+        self.body_container = ur.WidgetPlaceholder(ur.SolidFill("&"))
+        self.load_selected()
+        super().__init__([("pack", self.window_menu), self.body_container])
+
+
+    def load_instance(self, instance_key):
+        self.body_container.original_widget.load_instance(instance_key)
+
+
+    def load_selected(self):
+        new_widget = self.window_list[self.window_menu.selected()](self.window)
+        self.body_container.original_widget = new_widget
 
 
 class ExpandingList(ur.WidgetWrap):
@@ -160,14 +202,6 @@ class OperationList(ExpandingList):
             self.load_list(views)
 
 
-class RPQ_ListElem(ur.Columns):
-    def __init__(self, key, query_result, reverse=False):
-        widget_list = [('fixed', 1, ur.SelectableIcon('-')),
-                       ur.Text(str(query_result))]
-        self.elem = key
-        super().__init__(widget_list)
-
-
 class RelatedTerms(ur.WidgetWrap):
     def __init__(self, window):
         self.window = window
@@ -194,48 +228,6 @@ class RelatedTerms(ur.WidgetWrap):
         obj_of = [RPQ_ListElem(sbj, res) for sbj, res in rev_prop_query.items()]
         self.has_props.body = ur.SimpleFocusListWalker(subj_of)
         self.is_props.body = ur.SimpleFocusListWalker(obj_of)
-
-
-class InstanceOps(ur.Pile):
-    def __init__(self, window):
-        self.window = window
-        self.window_list = {"Related Terms": RelatedTerms,
-                            "Fill Tracklist": None}
-        self.window_menu = OperationList(self, self.window_list.keys())
-        self.body_container = ur.WidgetPlaceholder(ur.SolidFill("&"))
-        self.load_selected()
-        super().__init__([("pack", self.window_menu), self.body_container])
-
-
-    def load_instance(self, instance_key):
-        self.body_container.original_widget.load_instance(instance_key)
-
-
-    def load_selected(self):
-        new_widget = self.window_list[self.window_menu.selected()](self.window)
-        self.body_container.original_widget = new_widget
-
-
-class Header(ur.Columns):
-    def __init__(self, window):
-        self.resource_print_q = window.rpq.query(*printed_resource)
-        self.resource_widget = ur.Text("-None-")
-        self.selected_resource = None #???
-        self.window_focus = ur.Text("[FOCUS]")
-        left = [self.window_focus]
-        right = [ur.Padding(ur.Text("&&&&"), align="right", width="pack")]
-        center = [ur.Padding(ur.Text("Selected Resource: "), align='right',
-                             width='pack'), self.resource_widget]
-        super().__init__(left + center + right)
-
-
-    def select_resource(self, instance_key):
-        self.selected_resource = self.resource_print_q.copy(instance_key)
-        self.resource_widget.set_text(str(self.selected_resource.first_item()))
-
-
-    def update_focus_text(self, focus):
-        self.window_focus.set_text(f"[{focus}]")
 
 
 class Window(ur.Frame):

@@ -2,6 +2,14 @@
 
 import urwid as ur
 
+class RPQ_ListElem(ur.Columns):
+    def __init__(self, key, query_result, reverse=False):
+        widget_list = [('fixed', 1, ur.SelectableIcon('-')),
+                       ur.Text(str(query_result))]
+        self.elem = key
+        super().__init__(widget_list)
+
+
 class RPQ_NodeText(ur.TreeWidget):
     unexpanded_icon = ur.wimp.SelectableIcon('\u25B6', 0)
     expanded_icon = ur.wimp.SelectableIcon('\u25B7', 0)
@@ -112,3 +120,5 @@ def RPQ_Node(parent_query, key, parent):
         return RPQ_ParentNode(parent_query, key, parent)
     else:
         return RPQ_TreeNode(parent_query, key, parent)
+
+
