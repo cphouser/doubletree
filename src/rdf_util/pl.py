@@ -15,7 +15,7 @@ class RPQuery:
     def __init__(self, pl, key, q_from, q_as=None, parent=('', None),
                  q_where=None, q_by=None, unique=False, recursive=False,
                  desc_q=None, null=False, child_type=None, log=None):
-        self.parent = parent
+        self._parent = parent
         self.q_from = q_from
         self.q_where = q_where
         self.q_as = q_as
@@ -34,7 +34,7 @@ class RPQuery:
 
 
     def copy(self, parent=None):
-        par_ref = self.parent
+        par_ref = self._parent
         if parent:
             par_ref = (par_ref[0], parent)
         copy = RPQuery(self.pl, self.key, self.q_from, self.q_as, par_ref,
@@ -45,13 +45,17 @@ class RPQuery:
         return copy
 
 
+    @property
+    def parent(self):
+        return self._parent[1]
+
     def _query(self):
         if self._results is not None:
             return self._results
         #if self.log: self.log.debug(str(self))
 
         # replace parent variable w/ its value
-        p_key, p_value = self.parent
+        p_key, p_value = self._parent
         if p_value:
             p_value_str = str(p_value).replace("'", "\\'")
             q_from = self.q_from.replace(p_key, f"'{p_value_str}'")
@@ -169,7 +173,7 @@ class RPQuery:
         if key in self._children:
             return self._children[key]
         if key not in self._results:
-            if self.log: self.log.debug(self.parent[1])
+            if self.log: self.log.debug(self._parent[1])
             if self.log: self.log.debug(key)
             raise KeyError("Should i handle this?")
         if self.recursive:
@@ -183,7 +187,7 @@ class RPQuery:
 
     def __str__(self):
         string = '\n\t'.join([
-            f'RPQuery: parent({self.parent[0]}:{self.parent[1]})',
+            f'RPQuery: parent({self._parent[0]}:{self._parent[1]})',
             f'SELECT {self.key} AS "{self.q_as}"',
             f'FROM {self.q_from}',
         ])

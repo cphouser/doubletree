@@ -15,18 +15,18 @@ from palette import palette
 from log_util import LogFormatter
 from mpd_player import MpdPlayer
 
+from edit_windows import RelatedTerms
 from rdf_util.namespaces import XCAT
 from rdf_util.pl import mixed_query, all_classes, RPQ, VarList
 from rdf_util.rpq_widgets import RPQ_Node, RPQ_ListElem
 from rdf_util.queries import (tree_views, instance_ops, class_hierarchy,
-                              instance_properties, instance_is_property,
                               track_format_query, printed_resource)
 
 class Header(ur.Columns):
     def __init__(self, window):
         self.resource_print_q = window.rpq.query(*printed_resource)
         self.resource_widget = ur.Text("-None-")
-        self.selected_resource = None #???
+        self._selected_resource = None #???
         self.window_focus = ur.Text("[FOCUS]")
         left = [self.window_focus]
         right = [ur.Padding(ur.Text("&&&&"), align="right", width="pack")]
@@ -36,12 +36,18 @@ class Header(ur.Columns):
 
 
     def select_resource(self, instance_key):
-        self.selected_resource = self.resource_print_q.copy(instance_key)
-        self.resource_widget.set_text(str(self.selected_resource.first_item()))
+        self._selected_resource = self.resource_print_q.copy(instance_key)
+        self.resource_widget.set_text(str(self._selected_resource.first_item()))
 
 
     def update_focus_text(self, focus):
         self.window_focus.set_text(f"[{focus}]")
+
+
+    @property
+    def selected_resource(self):
+        if self._selected_resource:
+            return self._selected_resource.parent
 
 
 class ClassView(ur.TreeListBox):
@@ -117,19 +123,25 @@ class InstanceOps(ur.Pile):
         self.window = window
         self.window_list = {"Related Terms": RelatedTerms,
                             "Fill Tracklist": None}
-        self.window_menu = OperationList(self, self.window_list.keys())
-        self.body_container = ur.WidgetPlaceholder(ur.SolidFill("&"))
-        self.load_selected()
+        self.window_menu = OperationList(self.load_selected,
+                                         self.window_list.keys())
+        self.body_container = ur.WidgetPlaceholder(self._load_selected())
         super().__init__([("pack", self.window_menu), self.body_container])
 
 
     def load_instance(self, instance_key):
-        self.body_container.original_widget.load_instance(instance_key)
+        if instance_key:
+            self.body_container.original_widget.load_instance(instance_key)
 
 
     def load_selected(self):
-        new_widget = self.window_list[self.window_menu.selected()](self.window)
+        new_widget = self._load_selected()
         self.body_container.original_widget = new_widget
+        self.load_instance(self.window.frames["HEAD"].selected_resource)
+
+    def _load_selected(self):
+        return self.window_list[self.window_menu.selected()](
+                self.window.rpq, self.window.load_relations)
 
 
 class ExpandingList(ur.WidgetWrap):
@@ -195,39 +207,19 @@ class ViewList(ExpandingList):
 
 
 class OperationList(ExpandingList):
-    def __init__(self, frame, views=None):
+    def __init__(self, select_function, views=None):
         super().__init__()
-        self.frame = frame
+        self.select_function = select_function
         if views:
             self.load_list(views)
 
 
-class RelatedTerms(ur.WidgetWrap):
-    def __init__(self, window):
-        self.window = window
-        self.has_props = ur.ListBox(ur.SimpleFocusListWalker([]))
-        self.is_props = ur.ListBox(ur.SimpleFocusListWalker([]))
-        self.prop_query = window.rpq.query(*instance_properties)
-        self.rev_prop_query = window.rpq.query(*instance_is_property)
-        super().__init__(ur.Columns([self.is_props, self.has_props]))
-
-
     def keypress(self, size, key):
         if key == "enter":
-            if self._w.focus.focus:
-                self.window.load_relations(self._w.focus.focus.elem)
+            self.load_summary()
+            self.select_function()
         elif (res := super().keypress(size, key)):
             return res
-
-
-    def load_instance(self, instance_key):
-        prop_query = self.prop_query.copy(instance_key)
-        rev_prop_query = self.rev_prop_query.copy(instance_key)
-        subj_of = [RPQ_ListElem(obj, res, reverse=True)
-                   for obj, res in prop_query.items()]
-        obj_of = [RPQ_ListElem(sbj, res) for sbj, res in rev_prop_query.items()]
-        self.has_props.body = ur.SimpleFocusListWalker(subj_of)
-        self.is_props.body = ur.SimpleFocusListWalker(obj_of)
 
 
 class Window(ur.Frame):

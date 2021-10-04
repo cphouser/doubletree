@@ -4,7 +4,8 @@ import urwid as ur
 
 class RPQ_ListElem(ur.Columns):
     def __init__(self, key, query_result, reverse=False):
-        widget_list = [('fixed', 1, ur.SelectableIcon('-')),
+        width = 1 if reverse else 2
+        widget_list = [('fixed', width, ur.SelectableIcon('-')),
                        ur.Text(str(query_result))]
         self.elem = key
         super().__init__(widget_list)
