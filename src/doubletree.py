@@ -6,7 +6,7 @@ import functools
 from datetime import datetime
 import traceback
 
-from rdflib.namespace import RDF, RDFS, OWL, XSD
+from rdflib.namespace import RDF, RDFS, XSD
 from pyswip.prolog import Prolog, PrologError
 import urwid as ur
 
@@ -17,124 +17,10 @@ from mpd_player import MpdPlayer
 
 from rdf_util.namespaces import XCAT
 from rdf_util.pl import mixed_query, all_classes, RPQ, VarList
+from rdf_util.rpq_widgets import RPQ_Node
 from rdf_util.queries import (tree_views, instance_ops, class_hierarchy,
                               instance_properties, instance_is_property,
                               track_format_query, printed_resource)
-
-class RPQ_NodeText(ur.TreeWidget):
-    unexpanded_icon = ur.wimp.SelectableIcon('\u25B6', 0)
-    expanded_icon = ur.wimp.SelectableIcon('\u25B7', 0)
-    leaf_icon = ur.wimp.SelectableIcon('-', 0)
-
-    def __init__(self, node):
-        super().__init__(node)
-        self.expanded = False
-        self.update_expanded_icon()
-
-
-    def selectable(self):
-        return True
-
-
-    def get_display_text(self):
-        return str(self.get_node().get_value())
-
-
-    def get_indented_widget(self):
-        inner = self.get_inner_widget()
-        widget = ur.Columns([('fixed', 1, self.get_icon()), inner],
-                            dividechars=1)
-        indent_cols = self.get_indent_cols()
-        return ur.Padding(widget, width=('relative', 100), left=indent_cols)
-
-
-    def get_icon(self):
-        if self.is_leaf:
-            return self.leaf_icon
-        elif self.expanded:
-            return self.expanded_icon
-        else:
-            return self.unexpanded_icon
-
-
-    def update_expanded_icon(self):
-        """Update display widget text for parent widgets"""
-        # icon is first element in columns indented widget
-        self._w.base_widget.widget_list[0] = self.get_icon()
-
-
-    def keypress(self, size, key):
-        if key == "tab":
-            if not self.is_leaf:
-                self.expanded = not self.expanded
-                self.update_expanded_icon()
-        else:
-            return key
-
-
-class RPQ_TreeNode(ur.TreeNode):
-    def __init__(self, parent_query, key, parent=None):
-        value = parent_query[key]
-        self.parent_query = parent_query
-        self._prev_sibling = None
-        self._next_sibling = None
-        super().__init__(value, parent=parent, key=key)
-
-
-    def next_sibling(self):
-        if self._next_sibling is False:
-            return None
-        if self._next_sibling:
-            return self._next_sibling
-        next_key_idx = self.parent_query.keys().index(self.get_key()) + 1
-        if next_key_idx < len(self.parent_query.keys()):
-            #log.debug(next_key_idx)
-            #log.debug(self.get_key())
-            #log.debug(self.parent_query.keys())
-            key = self.parent_query.keys()[next_key_idx]
-            self._next_sibling = RPQ_Node(self.parent_query, key,
-                                          self.get_parent())
-            self._next_sibling._prev_sibling = self
-            return self._next_sibling
-
-
-    def prev_sibling(self):
-        if self._prev_sibling is False:
-            return None
-        if self._prev_sibling:
-            return self._prev_sibling
-        next_key_idx = self.parent_query.keys().index(self.get_key()) - 1
-        if (next_key_idx + 1):
-            #log.debug(next_key_idx)
-            #log.debug(self.get_key())
-            #log.debug(self.parent_query.keys())
-            key = self.parent_query.keys()[next_key_idx]
-            self._prev_sibling = RPQ_Node(self.parent_query, key,
-                                          self.get_parent())
-            self._prev_sibling._next_sibling = self
-            return self._prev_sibling
-
-
-    def load_widget(self):
-        return RPQ_NodeText(self)
-
-
-class RPQ_ParentNode(RPQ_TreeNode, ur.ParentNode):
-    def load_child_keys(self):
-        return self.parent_query.child_query(self.get_key()).keys()
-
-
-    def load_child_node(self, key):
-        return RPQ_Node(self.parent_query.child_query(self.get_key()),
-                        key, self)
-
-
-def RPQ_Node(parent_query, key, parent):
-    if len(parent_query.child_query(key)):
-        return RPQ_ParentNode(parent_query, key, parent)
-    else:
-        return RPQ_TreeNode(parent_query, key, parent)
-
 
 class ClassView(ur.TreeListBox):
     def __init__(self, window, rpquery):
@@ -163,16 +49,14 @@ class InstanceView(ur.Pile):
 
 
     def keypress(self, size, key):
-        if self.focus == self.tree:
+        if self.focus == self.tree and self.tree.focus.get_node().get_value():
             focused = self.tree.focus.get_node()
             sel_type = focused.get_value().type
-            #log.debug(sel_type)
-            #log.debug(instance_ops.keys())
             selected = focused.get_key()
             if (operation := instance_ops.get(sel_type, {}).get(key)):
                 log.debug(f"{selected} {key} {operation}")
                 mixed_query(self.window.rpq, operation, selected, log=log)
-                self.window.frames['now'].reload()
+                self.window.frames["OPERATE"].reload()
                 return
             elif key == 'enter':
                 self.window.load_relations(selected)
@@ -252,6 +136,7 @@ class ViewList(ExpandingList):
 
     def keypress(self, size, key):
         if key == "enter":
+            self.load_summary()
             self.frame.load_view()
         elif (res := super().keypress(size, key)):
             return res
@@ -265,6 +150,14 @@ class ViewList(ExpandingList):
                 if str(view['root']) == rdfs_class:
                     views.append(view_name)
         self.load_list(views)
+
+
+class OperationList(ExpandingList):
+    def __init__(self, frame, views=None):
+        super().__init__()
+        self.frame = frame
+        if views:
+            self.load_list(views)
 
 
 class RPQ_ListElem(ur.Columns):
@@ -303,16 +196,24 @@ class RelatedTerms(ur.WidgetWrap):
         self.is_props.body = ur.SimpleFocusListWalker(obj_of)
 
 
-class InstanceOps(ur.Frame):
+class InstanceOps(ur.Pile):
     def __init__(self, window):
-        self.window_menu = ur.Text("-related terms-")
-        related_terms = RelatedTerms(window)
-        self.body_container = ur.WidgetPlaceholder(related_terms)
-        super().__init__(self.body_container, self.window_menu)
+        self.window = window
+        self.window_list = {"Related Terms": RelatedTerms,
+                            "Fill Tracklist": None}
+        self.window_menu = OperationList(self, self.window_list.keys())
+        self.body_container = ur.WidgetPlaceholder(ur.SolidFill("&"))
+        self.load_selected()
+        super().__init__([("pack", self.window_menu), self.body_container])
 
 
     def load_instance(self, instance_key):
         self.body_container.original_widget.load_instance(instance_key)
+
+
+    def load_selected(self):
+        new_widget = self.window_list[self.window_menu.selected()](self.window)
+        self.body_container.original_widget = new_widget
 
 
 class Header(ur.Columns):
@@ -333,7 +234,11 @@ class Header(ur.Columns):
         self.resource_widget.set_text(str(self.selected_resource.first_item()))
 
 
-class Window(ur.WidgetWrap):
+    def update_focus_text(self, focus):
+        self.window_focus.set_text(f"[{focus}]")
+
+
+class Window(ur.Frame):
     def __init__(self, rpq, update_rate=5):
         self.rpq = rpq
         self.format_query = rpq.query(*track_format_query)
@@ -346,55 +251,60 @@ class Window(ur.WidgetWrap):
         operationgrid = InstanceOps(self)
         operationview = MpdPlayer(self.format_track, log=log)
         self.frames = {
-            "head": header,
-            "class": classtreewin,
-            "browse": instancetree,
-            "ops": operationgrid,
-            "now": operationview
+            "HEAD": header,
+            "CLASS": classtreewin,
+            "BROWSE": instancetree,
+            "EDIT": operationgrid,
+            "OPERATE": operationview
         }
         top_frame = ur.Columns([('fixed', 30, classtreewin), operationgrid])
         bottom_frame = ur.Columns([instancetree, ("weight", 2, operationview)])
         pile = ur.Pile([top_frame, ("weight", 2, bottom_frame)])
-
-        ur.WidgetWrap.__init__(self, ur.Frame(pile, header=header))
+        super().__init__(pile, header=header)
 
 
     def keypress(self, size, key):
         if key in ['esc', 'q', 'Q']: raise ur.ExitMainLoop()
-        if (key := self.__super.keypress(size, key)):
+        if (key := super().keypress(size, key)):
             key_list = key.split(' ')
-            if key_list[0] == 'shift':
-                if key_list[1] in ['up', 'down', 'left', 'right']:
-                    self.focus_frame(key_list[1])
-                    return None
-            log.info(f'size:{size}, key:{key_list}')
+            if (key_list[0] == 'shift'
+                    and key_list[1] in ['up', 'down', 'left', 'right']):
+                self.focus_frame(key_list[1])
+            else:
+                log.info(f'size:{size}, key:{key_list}')
+        self.update_focused()
 
 
     def focus_frame(self, direction):
         if direction == "down":
-            if self._w.focus_position == 0:
-                self._w.focus_position = 1
+            if self.body.focus_position == 0:
+                self.body.focus_position = 1
         elif direction == "up":
-            if self._w.focus_position == 1:
-                self._w.focus_position = 0
+            if self.body.focus_position == 1:
+                self.body.focus_position = 0
         elif direction == "left":
-            if self._w.focus.focus_position > 0:
-                self._w.focus.focus_position -= 1
+            if self.body.focus.focus_position == 1:
+                self.body.focus.focus_position = 0
         else:
-            if self._w.focus.focus_position < (len(self._w.focus.contents) - 1):
-                self._w.focus.focus_position += 1
+            if self.body.focus.focus_position == 0:
+                self.body.focus.focus_position = 1
+
+
+    def update_focused(self):
+        for name, window in self.frames.items():
+            if window is self.body.focus.focus:
+                self.frames["HEAD"].update_focus_text(name)
 
 
     def load_instances(self, sel_class):
-        self.frames['head'].select_resource(sel_class)
-        self.frames['browse'].load_instances(sel_class)
-        self.frames['ops'].load_instance(sel_class)
+        self.frames["HEAD"].select_resource(sel_class)
+        self.frames["BROWSE"].load_instances(sel_class)
+        self.frames["EDIT"].load_instance(sel_class)
 
 
     def load_relations(self, sel_instance):
-        self.frames['head'].select_resource(sel_instance)
-        self.frames['ops'].load_instance(sel_instance)
-
+        self.frames["HEAD"].select_resource(sel_instance)
+        self.frames["EDIT"].load_instance(sel_instance)
 
 
     def format_track(self, dictlike):
@@ -408,6 +318,7 @@ class Window(ur.WidgetWrap):
                 dictlike['album'] = results.get("Release", ".")
                 dictlike['year'] = results.get("Year", ".")
                 self.track_cache[path] = dictlike
+                log.debug(f"{len(self.track_cache)} tracks in metadata cache")
         return {
             'key': dictlike.get('id', ""),
             'track': dictlike.get('title', ""),
@@ -418,7 +329,7 @@ class Window(ur.WidgetWrap):
 
 
     def update_dynamic(self, main_loop, *args):
-        self.frames['now'].reload_screen()
+        self.frames["OPERATE"].reload_screen()
         main_loop.set_alarm_in(self.update_rate, self.update_dynamic)
 
 
