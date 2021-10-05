@@ -1,18 +1,24 @@
 #!/usr/bin/env python3
 
 import urwid as ur
+from rdflib.namespace import RDF, RDFS, XSD
 
-from rdf_util.rpq_widgets import RPQ_ListElem
+from rdf_util.namespaces import XCAT
+from rdf_util.rpq_widgets import RPQ_ListElem, EditWindow
 from rdf_util.queries import instance_properties, instance_is_property
 
-class RelatedTerms(ur.WidgetWrap):
+
+class RelatedTerms(EditWindow, ur.WidgetWrap):
+    root = RDFS.Resource
+    name = "Related Terms"
+
     def __init__(self, rpq, update_resource):
         self.has_props = ur.ListBox(ur.SimpleFocusListWalker([]))
         self.is_props = ur.ListBox(ur.SimpleFocusListWalker([]))
         self.prop_query = rpq.query(*instance_properties)
         self.rev_prop_query = rpq.query(*instance_is_property)
-        self.update_resource = update_resource
-        super().__init__(ur.Columns([self.is_props, self.has_props]))
+        super().__init__(ur.Columns([self.is_props, self.has_props]),
+                         update_resource)
 
 
     def keypress(self, size, key):
@@ -31,3 +37,8 @@ class RelatedTerms(ur.WidgetWrap):
         obj_of = [RPQ_ListElem(sbj, res) for sbj, res in rev_prop_query.items()]
         self.has_props.body = ur.SimpleFocusListWalker(subj_of)
         self.is_props.body = ur.SimpleFocusListWalker(obj_of)
+
+
+class FindTracklist(EditWindow, ur.WidgetWrap):
+    root = XCAT.Release
+    name = "Find Tracklist"

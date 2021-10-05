@@ -15,10 +15,11 @@ from palette import palette
 from log_util import LogFormatter
 from mpd_player import MpdPlayer
 
-from edit_windows import RelatedTerms
+from util_widgets import ExpandingList
+from edit_widgets import RelatedTerms
 from rdf_util.namespaces import XCAT
 from rdf_util.pl import mixed_query, all_classes, RPQ, VarList
-from rdf_util.rpq_widgets import RPQ_Node, RPQ_ListElem
+from rdf_util.rpq_widgets import RPQ_Node, RPQ_ListElem, EditWindows
 from rdf_util.queries import (tree_views, instance_ops, class_hierarchy,
                               track_format_query, printed_resource)
 
@@ -118,69 +119,6 @@ class InstanceView(ur.Pile):
         self.new_tree(sel_class, view_query)
 
 
-class InstanceOps(ur.Pile):
-    def __init__(self, window):
-        self.window = window
-        self.window_list = {"Related Terms": RelatedTerms,
-                            "Fill Tracklist": None}
-        self.window_menu = OperationList(self.load_selected,
-                                         self.window_list.keys())
-        self.body_container = ur.WidgetPlaceholder(self._load_selected())
-        super().__init__([("pack", self.window_menu), self.body_container])
-
-
-    def load_instance(self, instance_key):
-        if instance_key:
-            self.body_container.original_widget.load_instance(instance_key)
-
-
-    def load_selected(self):
-        new_widget = self._load_selected()
-        self.body_container.original_widget = new_widget
-        self.load_instance(self.window.frames["HEAD"].selected_resource)
-
-    def _load_selected(self):
-        return self.window_list[self.window_menu.selected()](
-                self.window.rpq, self.window.load_relations)
-
-
-class ExpandingList(ur.WidgetWrap):
-    def __init__(self):
-        walker = ur.SimpleFocusListWalker(
-                [ur.Columns([ur.Text("-"), ur.Text("-")])])
-        self.listbox = ur.ListBox(walker)
-        self.summary = ur.Columns([("pack", ur.SelectableIcon("\u2261 ")),
-                                   ur.Text(self.selected())])
-        super().__init__(self.summary)
-
-
-    def keypress(self, size, key):
-        if key == "tab":
-            if self._w == self.summary:
-                height = min(3, len(self.listbox.body))
-                self._w = ur.BoxAdapter(self.listbox, height)
-            else:
-                self.load_summary()
-        elif (res := super().keypress(size, key)):
-            return res
-
-
-    def load_list(self, str_list):
-        self.listbox.body = ur.SimpleFocusListWalker(
-            [ur.Columns([("pack", ur.SelectableIcon('- ')),
-                         ur.Text(string)]) for string in str_list])
-        self.load_summary()
-
-
-    def selected(self):
-        return self.listbox.focus[1].get_text()[0]
-
-
-    def load_summary(self):
-        self.summary[1].set_text(self.selected())
-        self._w = self.summary
-
-
 class ViewList(ExpandingList):
     def __init__(self, frame, root_class=RDFS.Resource):
         super().__init__()
@@ -206,18 +144,59 @@ class ViewList(ExpandingList):
         self.load_list(views)
 
 
+class InstanceOps(ur.Pile):
+    def __init__(self, window):
+        self.window = window
+        self.window_menu = OperationList(self.load_selected)
+        self.body_container = ur.WidgetPlaceholder(ur.SolidFill("."))
+        super().__init__([("pack", self.window_menu), self.body_container])
+
+
+    def load_instance(self, instance_key):
+        if not instance_key:
+            return
+        instance_class = self.window.rpq.simple_query(
+                f"rdf('{instance_key}', '{RDF.type}', X)", unique=True)
+        classes = all_classes(self.window.rpq, instance_class)
+        log.debug(classes)
+        edit_windows = {}
+        for superclass in classes:
+            edit_windows.update(EditWindows(superclass))
+        self.window_menu.load_views(edit_windows)
+        log.debug(edit_windows)
+        self.body_container.original_widget = self._load_selected()
+        self.body_container.original_widget.load_instance(instance_key)
+
+
+    def load_selected(self):
+        self.body_container.original_widget = self._load_selected()
+        self.load_instance(self.window.frames["HEAD"].selected_resource)
+
+
+    def _load_selected(self):
+        return self.window_menu.selected_widget()(self.window.rpq,
+                                                  self.window.load_relations)
+
+
 class OperationList(ExpandingList):
     def __init__(self, select_function, views=None):
         super().__init__()
         self.select_function = select_function
-        if views:
-            self.load_list(views)
+
+
+    def load_views(self, view_dict):
+        self.view_dict = view_dict
+        self.load_list(view_dict.keys())
+
+
+    def selected_widget(self):
+        return self.view_dict[self.selected()]
 
 
     def keypress(self, size, key):
         if key == "enter":
             self.load_summary()
-            self.select_function()
+            self.select_function(self.selected_widget())
         elif (res := super().keypress(size, key)):
             return res
 

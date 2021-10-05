@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-
 import urwid as ur
 
 class RPQ_ListElem(ur.Columns):
@@ -122,4 +121,24 @@ def RPQ_Node(parent_query, key, parent):
     else:
         return RPQ_TreeNode(parent_query, key, parent)
 
+class EditWindow(ur.WidgetWrap):
+    def __init__(self, widget, update_resource):
+        # function to pass the new instance to
+        self.update_resource = update_resource
+        super().__init__(widget)
 
+
+    def load_instance(self, instance_key):
+        raise NotImplementedError
+
+
+def EditWindows(root=None):
+    import edit_widgets
+    try:
+        import user_py.edit_widgets
+    except ImportError:
+        pass
+    if root:
+        return {subcls.name: subcls for subcls in EditWindow.__subclasses__()
+                if str(subcls.root) == str(root)}
+    return {subcls.name: subcls for subcls in EditWindow.__subclasses__()}
