@@ -5,31 +5,13 @@ from rdflib.namespace import RDF, RDFS, OWL, XSD
 from rdf_util.namespaces import XCAT
 
 printed_resource = [
-    'Resource',
-    'xcat_print(Resource, Class, String)',
+    'Res',
+    'xcat_print(Resource, Class, String), Res=Resource',
     '{String} <{Class}>',
     ('Resource', None),
-]
-
-instance_properties = [
-    'ObjURI',
-    "rdf(Subject, PredURI, ObjURI), "
-    "xcat_label(PredURI, Predicate), "
-    "xcat_print(ObjURI, Class, Object)",
-    "--{Predicate}--> {Object} <{Class}>",
-    ('Subject', None),
     dict(child_type=False)
 ]
 
-instance_is_property = [
-    'SubjURI',
-    "rdf(SubjURI, PredURI, ObjURI), "
-    "xcat_label(PredURI, Predicate), "
-    "xcat_print(SubjURI, Class, Subject)",
-    "{Subject} <{Class}> --{Predicate}--> ",
-    ('ObjURI', None),
-    dict(child_type=False)
-]
 
 class_hierarchy = [
     'ChildClass',

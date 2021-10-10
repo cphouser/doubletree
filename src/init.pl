@@ -37,6 +37,11 @@ xcat_tracklist_filepaths(Release, FileList) :-
     xcat_tracklist(Release, RecordingList),
     maplist(xcat_filepath, RecordingList, FileList).
 
+xcat_type(Resource, Class) :-
+    Resource = _^^Class, !.
+xcat_type(Resource, Class) :-
+    rdf(Resource, rdf:type, Class).
+
 xcat_label(Resource, Label) :-
     rdf(Resource, rdfs:label, Label^^xsd:string).
 

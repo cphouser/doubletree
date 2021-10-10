@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 import os
-import logging
+import logging as log
 import functools
 from datetime import datetime
 import traceback
@@ -164,13 +164,16 @@ class InstanceOps(ur.Pile):
             edit_windows.update(EditWindows(superclass))
         self.window_menu.load_views(edit_windows)
         log.debug(edit_windows)
+        self._load_instance(instance_key)
+
+
+    def _load_instance(self, instance_key):
         self.body_container.original_widget = self._load_selected()
-        self.body_container.original_widget.load_instance(instance_key)
+        log.debug(self.body_container.original_widget.load_instance(instance_key))
 
 
     def load_selected(self):
-        self.body_container.original_widget = self._load_selected()
-        self.load_instance(self.window.frames["HEAD"].selected_resource)
+        self._load_instance(self.window.frames["HEAD"].selected_resource)
 
 
     def _load_selected(self):
@@ -190,13 +193,14 @@ class OperationList(ExpandingList):
 
 
     def selected_widget(self):
+        log.debug(self.selected())
         return self.view_dict[self.selected()]
 
 
     def keypress(self, size, key):
         if key == "enter":
             self.load_summary()
-            self.select_function(self.selected_widget())
+            self.select_function()
         elif (res := super().keypress(size, key)):
             return res
 
@@ -265,8 +269,11 @@ class Window(ur.Frame):
         self.frames["EDIT"].load_instance(sel_class)
 
 
-    def load_relations(self, sel_instance):
-        self.frames["HEAD"].select_resource(sel_instance)
+    def load_relations(self, sel_instance=None):
+        if sel_instance:
+            self.frames["HEAD"].select_resource(sel_instance)
+        else:
+            sel_instance = self.frames["HEAD"].selected_resource
         self.frames["EDIT"].load_instance(sel_instance)
 
 
@@ -308,14 +315,14 @@ def doubletree(rpq):
 
 
 if __name__ == "__main__":
-    log = logging.getLogger('doubletree')
-    log.setLevel(logging.DEBUG)
-    log_handler = logging.FileHandler('dbltree.log', encoding='utf-8')
+    #log = logging.getLogger('doubletree')
+    #log.setLevel(logging.DEBUG)
+    log_handler = log.FileHandler('dbltree.log', encoding='utf-8')
 
     log_handler.setFormatter(LogFormatter())
-    log.addHandler(log_handler)
+    log.basicConfig(level=log.DEBUG, handlers=[log_handler])
 
-    log.info(f"\n\t\tDoubletree {datetime.now()}")
+    log.info(f"\nPID: {os.getpid()}\t\tDoubletree {datetime.now()}")
     rpq = RPQ('init.pl', log=log)
 
     doubletree(rpq)

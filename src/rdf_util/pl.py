@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 
 from frozendict import frozendict
+import logging as log
 import re
 from functools import total_ordering
 
 from pyswip.prolog import Prolog
 from pyswip import easy
-from rdflib.namespace import RDF, RDFS, OWL, XSD
+from rdflib.namespace import RDF, RDFS, XSD
 from indexed import IndexedOrderedDict
 
 from rdf_util.namespaces import XCAT, B3
@@ -49,6 +50,11 @@ class RPQuery:
     def parent(self):
         return self._parent[1]
 
+    @parent.setter
+    def parent(self, value):
+        self._parent = (self._parent[0], value)
+
+
     def _query(self):
         if self._results is not None:
             return self._results
@@ -77,12 +83,14 @@ class RPQuery:
         # add term querying type of the key
         if self.child_type is not False:
             if process_list and self.q_where:
-                q_where += f", rdf({key}, '{RDF.type}', RPQ_KeyType)."
+                q_where += f", xcat_type({key}, RPQ_KeyType)."
             else:
-                q_from += f", rdf({key}, '{RDF.type}', RPQ_KeyType)."
+                q_from += f", xcat_type({key}, RPQ_KeyType)."
 
         # retrieve q_from results
         results = {}
+        #if self.log: self.log.debug(q_from)
+        log.debug(q_from)
         for from_result in self.pl.query(q_from):
             if process_list:
                 list_result = from_result.pop(key)
@@ -92,7 +100,7 @@ class RPQuery:
                     results[result] = {**from_result, key: result}
             else:
                 results[from_result[key]] = from_result
-
+        if self.log: self.log.debug(f"{len(results)} results")
         # query q_where using each key
         if self.q_where:
             for k, result in dict(results).items():
@@ -106,9 +114,10 @@ class RPQuery:
                 elif not self.null:
                     del results[k]
                 list(where_query)
+        if self.log: self.log.debug(f"now {len(results)} results")
 
         self._results = IndexedOrderedDict()
-        q_as = VarList(self.q_as) if self.q_as else Varlist(key)
+        q_as = VarList(self.q_as) if self.q_as else VarList(key)
         # sort results using q_by varlist
         if self.q_by is None:
             q_by = q_as
@@ -265,13 +274,14 @@ class RPQ:
     def simple_query(self, query, unique=False):
         results = self.uns_query(query)
         if len(results) > 1:
-            results = [result.pop(next(iter(result))) for result in results]
+            results = [_utf8(result.pop(next(iter(result))))
+                       for result in results]
             if unique:
                 raise Exception(f"Multiple terms fit the query pattern:\n"
                                 f"{query}\nThey are:\n{results}\n")
             return results
         elif results:
-            return results[0].pop(next(iter(results[0])), None)
+            return _utf8(results[0].pop(next(iter(results[0])), None))
 
 
     def rassert(self, *statements):
@@ -291,6 +301,15 @@ class RPQ:
         return result[0]['X']
 
 
+    def TrackList(self, release, term_list):
+        seq = self.new_seq(term_list)
+        return RPAssert(self._pl,
+                f"rdf_retractall('{seq}', '{RDF.type}', '{RDF.Seq}')",
+                f"rdf_assert('{seq}', '{RDF.type}', '{XCAT.TrackList}')",
+                f"rdf_assert('{release}', '{XCAT.tracklist}', '{seq}')"
+        ).execute()
+
+
     def uns_query(self, query):
         return list(self._pl.query(query))
 
@@ -307,12 +326,12 @@ class RPAssert:
 
     def execute(self):
         if not self.write_mode:
-            list(self.pl.query(self._enter))
+            log.debug(list(self.pl.query(self._enter)))
         if self.log: self.log.debug("ASSERT\n" + ",\n".join(self.statements))
         res = list(self.pl.query(", ".join(self.statements)))
         if self.log: self.log.debug(res)
         if not self.write_mode:
-            list(self.pl.query(self._exit))
+            log.debug(list(self.pl.query(self._exit)))
         return res
 
 
@@ -511,18 +530,24 @@ def _utf8(var):
         return var
     elif isinstance(var, easy.Atom):
         return str(var)
+    if var is None:
+        return ""
     else:
         raise Exception(f"implement {type(var)}")
 
 
 def xsd_type(literal, xsd_t):
     if isinstance(literal, str):
-        literal = "'" + literal.replace("'", "\\'") + "'"
+        literal = escape_string(literal)
     elif isinstance(literal, int):
         pass
     else:
         raise Exception(f"implement {type(literal)}")
     return f"{literal}^^'{XSD[xsd_t]}'"
+
+
+def escape_string(literal):
+    return "'" + literal.replace("'", "\\'") + "'"
 
 
 def LDateTime(rpq, **kwargs):
