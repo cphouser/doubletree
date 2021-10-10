@@ -27,6 +27,7 @@ PyYAML==5.4.1
 rdflib==5.0.0
 requests==2.25.1
 six==1.15.0
+sqlitedict==1.7.0
 Unidecode==1.2.0
 urllib3==1.26.5
 urwid==2.1.2
