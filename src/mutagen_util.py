@@ -10,10 +10,11 @@ from pprint import pprint, pformat
 
 import mutagen
 from sqlitedict import SqliteDict
+from conf_file import Config
 
 class TagData:
-    DATA_ROOTS = ["/mnt/yesdrive/organized music",
-                "/mnt/yesdrive/unorganized music"]
+    DATA_ROOTS = Config["base_paths"]
+
     TAG_FIELDS = {
         "artist": [
             "TPE1", "TPE2", #mutagen.mp3.MPEGInfo
