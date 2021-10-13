@@ -106,7 +106,7 @@ class MergeTerms(EditWindow, ur.WidgetWrap):
                     self.resource_list.clear()
         elif key == "y" and self.confirm:
             self.merge()
-            self.update_resource(self.new_resource)
+            self.update_resource(self.new_resource, reload_instances=True)
         elif self.confirm:
             self.confirm = False
             self.load_instance(self.current_resource_key)

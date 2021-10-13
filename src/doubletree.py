@@ -269,12 +269,14 @@ class Window(ur.Frame):
         self.frames["EDIT"].load_instance(sel_class)
 
 
-    def load_relations(self, sel_instance=None):
+    def load_relations(self, sel_instance=None, reload_instances=False):
         if sel_instance:
             self.frames["HEAD"].select_resource(sel_instance)
         else:
             sel_instance = self.frames["HEAD"].selected_resource
         self.frames["EDIT"].load_instance(sel_instance)
+        if reload_instances:
+            self.frames["BROWSE"].load_view()
 
 
     def format_track(self, dictlike):
