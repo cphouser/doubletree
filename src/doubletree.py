@@ -29,9 +29,9 @@ class Header(ur.Columns):
         self.resource_widget = ur.Text("-None-")
         self._selected_resource = None #???
         self.window_focus = ur.Text("[FOCUS]")
-        left = [self.window_focus]
+        left = [("pack", self.window_focus)]
         right = [ur.Padding(ur.Text("&&&&"), align="right", width="pack")]
-        center = [ur.Padding(ur.Text("Selected Resource: "), align='right',
+        center = [ur.Padding(ur.Text("Selected "), align='right',
                              width='pack'), self.resource_widget]
         super().__init__(left + center + right)
 

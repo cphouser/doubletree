@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import logging as log
+from enum import Enum
 from pprint import pformat
 
 import urwid as ur
@@ -8,6 +9,7 @@ from rdflib.namespace import RDF, RDFS, XSD
 from rdf_util.namespaces import XCAT, ShortURI
 from rdf_util.rpq_widgets import RPQ_ListElem, EditWindow
 from rdf_util.pl import xsd_type, escape_string
+from rdf_util.queries import printed_resource, class_instances
 from util_widgets import TableList, TableRow, TableItem, SelectableText
 from mutagen_util import TagData
 
@@ -60,6 +62,60 @@ class RelatedTerms(EditWindow, ur.WidgetWrap):
         obj_of = [RPQ_ListElem(sbj, res) for sbj, res in rev_prop_query.items()]
         self.has_props.body = ur.SimpleFocusListWalker(subj_of)
         self.is_props.body = ur.SimpleFocusListWalker(obj_of)
+
+
+class MergeTerms(EditWindow, ur.WidgetWrap):
+    root = RDFS.Resource
+    name = "Merge Term Into"
+
+    def __init__(self, rpq, update_resource):
+        self.rpq = rpq
+        self.name_query = self.rpq.query(*printed_resource)
+        #self.name_query.q_as = "{Class}: {String} <{Res}>"
+        self.instances = self.rpq.query(*class_instances)
+        self.current_resource = ur.Text("...")
+        self.current_resource_key = None
+        self.resource_list = ur.SimpleFocusListWalker([])
+        super().__init__(ur.Frame(ur.ListBox(self.resource_list),
+                                  header=self.current_resource),
+                         update_resource)
+
+
+    def load_instance(self, instance_key):
+        self.confirm = False
+        res = self.name_query.copy(instance_key).first_item()
+        self.current_resource_key = instance_key
+        self.current_resource.set_text(str(res))
+        others = self.instances.copy(res.type)
+        for key, result in others.items():
+            self.resource_list.append(RPQ_ListElem(key, result))
+            if result["Label"] == res["String"]:
+                self.resource_list.set_focus(len(self.resource_list) - 1)
+
+
+    def keypress(self, size, key):
+        if key == "enter" and not self.confirm:
+            if self._w.focus_position == "body":
+                resource = self.resource_list[self.resource_list.focus].elem
+                if resource != self.current_resource_key:
+                    self.confirm = True
+                    self.new_resource = resource
+                    self.current_resource.set_text(
+                        f"Confirm you want to merge {self.current_resource_key} "
+                        f"into {self.new_resource}. (y)es/cancel")
+                    self.resource_list.clear()
+        elif key == "y" and self.confirm:
+            self.merge()
+            self.update_resource(self.new_resource)
+        elif self.confirm:
+            self.confirm = False
+            self.load_instance(self.current_resource_key)
+        elif (res := super().keypress(size, key)):
+            return res
+
+    def merge(self):
+        self.rpq.rassert(f"xcat_merge_into('{self.current_resource_key}', "
+                         f"'{self.new_resource}')")
 
 
 audiofile_data = [

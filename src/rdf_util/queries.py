@@ -7,9 +7,9 @@ from rdf_util.namespaces import XCAT
 printed_resource = [
     'Res',
     'xcat_print(Resource, Class, String), Res=Resource',
-    '{String} <{Class}>',
+    '{Class}: {String} <{Res}>',
     ('Resource', None),
-    dict(child_type=False)
+    #dict(child_type=False)
 ]
 
 
@@ -21,6 +21,15 @@ class_hierarchy = [
     ('ParentClass', RDFS.Resource),
     dict(recursive=True)
 ]
+
+class_instances = [
+    "Instance",
+    f"rdfs_individual_of(Instance, InstanceClass), "
+    f"xcat_print(Instance, Label)",
+    "{Label} <{Instance}>",
+    ('InstanceClass', None),
+    dict(child_type=False)
+    ]
 
 tree_views = {
     'instance_list': {
