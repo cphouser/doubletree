@@ -76,7 +76,7 @@ def release_from_beets(rpq, release_uri, source, _beets):
                 f"rdf(X, '{RDF.type}', '{XCAT.Artist}'), "
                 f"rdf(X, '{XCAT.Name}', {albumartist_lbl})") or rpq.new_bnode()
         if isinstance(albumartist, list):
-            albumartist = rdf_unify(rpq, albumartist, log=log)
+            albumartist = rdf_unify(rpq, albumartist)
 
     rpq.rassert(*[
         f"rdf_assert('{albumartist}', '{RDF.type}', '{XCAT.Artist}')",
@@ -155,7 +155,7 @@ def track_from_beets(rpq, beets_lib, data):
                     f"rdf(X, '{RDF.type}', '{XCAT.Artist}'), "
                     f"rdf(X, '{XCAT.name}', {artist_lbl})") or rpq.new_bnode()
             if isinstance(artist, list):
-                artist = rdf_unify(rpq, artist, log=log)
+                artist = rdf_unify(rpq, artist)
         release = data['mb_albumid']
         track = data['mb_trackid']
     elif data_source is None:
@@ -244,7 +244,7 @@ def add_genres(rpq, subj, beets_dict):
                 f"rdf(X, '{RDF.type}', '{XCAT.Style}')",
                 f"rdf(X, '{XCAT.name}', {style_name})") or rpq.new_bnode()
         if isinstance(style_uri, list):
-            style_uri = rdf_unify(rpq, style_uri, log=log)
+            style_uri = rdf_unify(rpq, style_uri)
         rpq.rassert(*[
             f"rdf_assert('{style_uri}', '{RDF.type}', '{XCAT.Style}')",
             f"rdf_assert('{style_uri}', '{XCAT.name}', {style_name})",

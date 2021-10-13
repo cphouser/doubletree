@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import logging as log
 from inspect import getmembers
 import urwid as ur
 import musicpd
@@ -18,9 +19,7 @@ def format_track(dictlike):
 class MpdPlayer(ur.Frame):
     client = musicpd.MPDClient()
 
-    def __init__(self, column_func=format_track, refresh=5,
-                 screen_refresh=1, log=None):
-        self.log = log
+    def __init__(self, column_func=format_track, refresh=5, screen_refresh=1):
         self.refresh = refresh
         self.screen_refresh = screen_refresh
 
@@ -33,8 +32,8 @@ class MpdPlayer(ur.Frame):
                                  dividechars=1)
         col_widths = [len(heading) for heading in col_headings]
 
-        self.footer = CurrentSong(self.client, log)
-        self.body = Queue(self.client, column_func, col_widths, log)
+        self.footer = CurrentSong(self.client)
+        self.body = Queue(self.client, column_func, col_widths)
         self.reload()
 
 
@@ -54,8 +53,6 @@ class MpdPlayer(ur.Frame):
 
 
     def reload(self):
-        #if self.log:
-        #    self.log.debug(self.body.playing)
         self.client.connect(host="localhost")
         self.body.load_queue()
         paused = self.client.status().get('state') == 'pause'
@@ -83,7 +80,7 @@ class MpdPlayer(ur.Frame):
 
     def play_selected(self):
         idx = int(self.body.focus.key)
-        if self.log: self.log.debug(f"playing {idx}")
+        log.debug(f"playing {idx}")
         self.client.playid(idx)
 
 
@@ -108,8 +105,7 @@ OPERATION_MAP = {
 }
 
 class CurrentSong(ur.ProgressBar):
-    def __init__(self, client, log=None):
-        self.log = log
+    def __init__(self, client):
         self.client = client
         self.current_sec = 0
         self.total_sec = 1
@@ -125,7 +121,7 @@ class CurrentSong(ur.ProgressBar):
 
     def load_progress(self):
         status = self.client.status()
-        if self.log: self.log.debug(status)
+        log.debug(status)
         self.playing = status['state'] == 'play'
         if status.get('time'):
             self.current_sec, self.total_sec = [
@@ -140,7 +136,7 @@ class CurrentSong(ur.ProgressBar):
                 return True
             else:
                 self.set_completion(self.current_sec)
-        #if self.log: self.log.debug((self.current_sec, self.total_sec, self.start_time))
+        #log.debug((self.current_sec, self.total_sec, self.start_time))
         return False
 
     def get_text(self):
@@ -158,9 +154,8 @@ def sec_format(total_seconds):
 
 
 class Queue(ur.ListBox):
-    def __init__(self, client, column_func, header_widths, log=None):
+    def __init__(self, client, column_func, header_widths):
         self.column_func = column_func
-        self.log = log
         self.client = client
         self.walker = ur.SimpleFocusListWalker([])
         self.header_widths = header_widths
@@ -176,7 +171,7 @@ class Queue(ur.ListBox):
 
     @playing.setter
     def playing(self, idx):
-        #if self.log: self.log.debug((idx, self._playing))
+        #log.debug((idx, self._playing))
         if isinstance(self._playing, int) and self.walker:
             self.walker[self._playing].playing = False
         if idx is None:
@@ -192,8 +187,8 @@ class Queue(ur.ListBox):
         self.col_widths = self.header_widths
         self.walker.clear()
         for song in self.client.playlistinfo():
-            #if self.log: self.log.debug(song)
-            item = ListItem(self.log, **self.column_func(song))
+            #log.debug(song)
+            item = ListItem(**self.column_func(song))
             self.col_widths = [max(col, item.min_widths[i])
                                for i, col in enumerate(self.col_widths)]
             self.walker.append(item)
@@ -203,7 +198,7 @@ class Queue(ur.ListBox):
 
 
     def reflow(self):
-        #if self.log: self.log.debug(self.col_widths)
+        #log.debug(self.col_widths)
         for listitem in self.walker:
             for i, w in enumerate(self.col_widths):
                 listitem.contents[i] = (listitem.contents[i][0],
@@ -215,18 +210,17 @@ class ListItem(ur.Columns):
     PLAYING = {False: ur.wimp.SelectableIcon('\u23F5', 0),
                True: ur.wimp.SelectableIcon('\u23F8', 0)}
 
-    def __init__(self, log=None, key=None, **kwargs):
+    def __init__(self, key=None, **kwargs):
         widget_list = [self.NOT_PLAYING]
-        self.log = log
         self.key = key
         self._playing = False
         self.min_widths = [1]
         self.paused = False
         for arg, val in kwargs.items():
-            #if log: log.debug(f'{arg}: {val}')
+            #log.debug(f'{arg}: {val}')
             self.min_widths += [len(val)]
             widget_list.append(ur.Text(val))
-        #if log: log.debug(self.min_widths)
+        #log.debug(self.min_widths)
         super().__init__(widget_list, dividechars=1)
 
 
@@ -237,7 +231,7 @@ class ListItem(ur.Columns):
 
     @playing.setter
     def playing(self, value):
-        #if self.log: self.log.debug((self._playing, value))
+        #log.debug((self._playing, value))
         if value:
             self.contents[0] = (self.PLAYING[self.paused], self.contents[0][1])
         else:

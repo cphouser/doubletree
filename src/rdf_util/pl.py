@@ -15,7 +15,7 @@ from rdf_util.namespaces import XCAT, B3
 class RPQuery:
     def __init__(self, pl, key, q_from, q_as=None, parent=('', None),
                  q_where=None, q_by=None, unique=False, recursive=False,
-                 desc_q=None, null=False, child_type=None, log=None):
+                 desc_q=None, null=False, child_type=None):
         self._parent = parent
         self.q_from = q_from
         self.q_where = q_where
@@ -27,7 +27,6 @@ class RPQuery:
         self.null = null
         self.desc_q = desc_q
         self.pl = pl
-        self.log = log
         self._results = None
         self._children = {}
         # TODO add verify
@@ -40,9 +39,7 @@ class RPQuery:
             par_ref = (par_ref[0], parent)
         copy = RPQuery(self.pl, self.key, self.q_from, self.q_as, par_ref,
                        self.q_where, self.q_by, self.unique, self.recursive,
-                       self.desc_q, self.null, self.child_type, log=self.log)
-        #if self.log: self.log.debug(self)
-        #if self.log: self.log.debug(copy)
+                       self.desc_q, self.null, self.child_type)
         return copy
 
 
@@ -58,7 +55,6 @@ class RPQuery:
     def _query(self):
         if self._results is not None:
             return self._results
-        #if self.log: self.log.debug(str(self))
 
         # replace parent variable w/ its value
         p_key, p_value = self._parent
@@ -89,32 +85,28 @@ class RPQuery:
 
         # retrieve q_from results
         results = {}
-        #if self.log: self.log.debug(q_from)
         log.debug(q_from)
         for from_result in self.pl.query(q_from):
             if process_list:
                 list_result = from_result.pop(key)
                 for result in list_result:
-                    #if self.log: self.log.warn(key)
                     result = _utf8(result)
                     results[result] = {**from_result, key: result}
             else:
                 results[from_result[key]] = from_result
-        if self.log: self.log.debug(f"{len(results)} results")
+        log.debug(f"{len(results)} results")
         # query q_where using each key
         if self.q_where:
             for k, result in dict(results).items():
                 k_value_str = _utf8(k).replace("'", "\\'")
                 this_q_where = q_where.replace(key, f"'{k_value_str}'")
                 where_query = self.pl.query(this_q_where)
-                #if self.log: self.log.debug(len(where_query))
                 if (where_result := next(where_query, False)) is not False:
                     result.update(where_result)
-                    #if self.log: self.log.debug(where_result)
                 elif not self.null:
                     del results[k]
                 list(where_query)
-        if self.log: self.log.debug(f"now {len(results)} results")
+        log.debug(f"now {len(results)} results")
 
         self._results = IndexedOrderedDict()
         q_as = VarList(self.q_as) if self.q_as else VarList(key)
@@ -142,7 +134,6 @@ class RPQuery:
                 val_set.add(str(result))
                 self._results[key] = result
 
-        #if self.log: self.log.warn(self._results)
         return self._results
 
 
@@ -178,12 +169,11 @@ class RPQuery:
 
 
     def child_query(self, key):
-        #if self.log: self.log.debug(self.desc_q)
         if key in self._children:
             return self._children[key]
         if key not in self._results:
-            if self.log: self.log.debug(self._parent[1])
-            if self.log: self.log.debug(key)
+            log.debug(self._parent[1])
+            log.debug(key)
             raise KeyError("Should i handle this?")
         if self.recursive:
             self._children[key] = self.copy(key)
@@ -225,9 +215,8 @@ class RPQuery:
 
 
 class RPQ:
-    def __init__(self, *consult_files, write_mode=False, log=None):
+    def __init__(self, *consult_files, write_mode=False):
         self._pl = Prolog()
-        self._log = log
         self.write_mode = write_mode
         for consult_file in consult_files:
             self._pl.consult(consult_file)
@@ -242,7 +231,7 @@ class RPQ:
             if isinstance(arg, dict):
                 more_kwargs = args.pop(idx)
                 kwargs.update(more_kwargs)
-        return RPQuery(self._pl, *args, log=self._log, **kwargs)
+        return RPQuery(self._pl, *args, **kwargs)
 
 
     def querylist(self, queries):
@@ -258,8 +247,7 @@ class RPQ:
                     if isinstance(obj, dict):
                         kwargs = obj
                         args.pop(idx)
-            desc_query = RPQuery(self._pl, *args, log=self._log,
-                                 desc_q=desc_query, **kwargs)
+            desc_query = RPQuery(self._pl, *args, desc_q=desc_query, **kwargs)
         return desc_query
 
 
@@ -285,8 +273,8 @@ class RPQ:
 
 
     def rassert(self, *statements):
-        return RPAssert(self._pl, *statements, write_mode=self.write_mode,
-                        log=self._log).execute()
+        return RPAssert(self._pl, *statements, write_mode=self.write_mode
+                        ).execute()
 
 
     def new_bnode(self):
@@ -317,19 +305,18 @@ class RPQ:
 class RPAssert:
     _enter = "rdf_write"
     _exit = "rdf_read"
-    def __init__(self, pl, *statements, write_mode=False, log=None):
+    def __init__(self, pl, *statements, write_mode=False):
         self.statements = statements
         self.write_mode = write_mode
         self.pl = pl
-        self.log = log
 
 
     def execute(self):
         if not self.write_mode:
             log.debug(list(self.pl.query(self._enter)))
-        if self.log: self.log.debug("ASSERT\n" + ",\n".join(self.statements))
+        log.debug("ASSERT\n" + ",\n".join(self.statements))
         res = list(self.pl.query(", ".join(self.statements)))
-        if self.log: self.log.debug(res)
+        log.debug(res)
         if not self.write_mode:
             log.debug(list(self.pl.query(self._exit)))
         return res
@@ -437,13 +424,13 @@ class QueryResult:
         return self.string == other.string
 
 
-def rdf_unify(rpq, terms, log=None):
+def rdf_unify(rpq, terms):
     bnodes = [t for t in terms if '_:genid' == t[:7]]
     uris = [t for t in terms if '_:genid' != t[:7]]
-    if log: log.debug(f"unifying: {bnodes} with {uris}")
+    log.debug(f"unifying: {bnodes} with {uris}")
     if len(uris) > 1:
         #raise Exception("probably need to handle this interactively")
-        uris = sort_uris(uris, log=log)
+        uris = sort_uris(uris)
     elif not uris:
         raise Exception("not sure if this is gonna happen")
     uri = uris[0]
@@ -457,7 +444,7 @@ def rdf_unify(rpq, terms, log=None):
     return uri
 
 
-def sort_uris(uri_list, log=None):
+def sort_uris(uri_list):
     mb_uris = []
     dg_uris = []
     bc_uris = []
@@ -471,7 +458,7 @@ def sort_uris(uri_list, log=None):
         else:
             raise Exception(f"where is {uri} from?")
     for uris in [mb_uris, dg_uris, bc_uris]:
-        if log and len(uris) > 1:
+        if len(uris) > 1:
             log.warning(f"how to merge {uris}?")
     return mb_uris + dg_uris + bc_uris
 
@@ -486,34 +473,34 @@ def all_classes(rpq, subj_class):
     return classes
 
 
-def mixed_query(rpq, query, key, log=None):
+def mixed_query(rpq, query, key):
     # gotta do more if we're returning antything
     # TODO silly bad interface should be refactored
     partial_query = []
     for statement in query:
         if callable(statement):
             if partial_query:
-                res_args, res_kwargs = query_to_args(rpq, partial_query, log)
+                res_args, res_kwargs = query_to_args(rpq, partial_query)
                 statement(*res_args, **res_kwargs)
             else:
                 statement()
             partial_query = []
         elif isinstance(statement, str):
             partial_query += [statement.format(key)]
-        elif log: log.warn(f'bad type: {type(statement)} {statement}')
+        else: log.warn(f'bad type: {type(statement)} {statement}')
     if partial_query:
-        res_args, res_kwargs = query_to_args(rpq, partial_query, log)
+        res_args, res_kwargs = query_to_args(rpq, partial_query)
 
 
-def query_to_args(rpq, query, log=None):
+def query_to_args(rpq, query):
     result_args = []
     result_kwargs = {}
     results = rpq.uns_query(", ".join(query))
     for result in results:
-        if log: log.debug(result)
+        log.debug(result)
         for var, val in result.items():
             if isinstance(val, list):
-                if log: log.debug(f'{var} is list: {val}')
+                log.debug(f'{var} is list: {val}')
                 for list_elem in val:
                     result_args += [_utf8(list_elem)]
             else:
@@ -572,7 +559,7 @@ def LDateTime(rpq, **kwargs):
     return dt_uri
 
 
-def TrackList(rpq, term_list, log=None):
+def TrackList(rpq, term_list):
     seq = rpq.new_seq(term_list)
     rpq.rassert(f"rdf_retractall('{seq}', '{RDF.type}', '{RDF.Seq}')",
                 f"rdf_assert('{seq}', '{RDF.type}', '{XCAT.TrackList}')")

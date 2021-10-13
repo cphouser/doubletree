@@ -86,7 +86,7 @@ if __name__ == "__main__":
 
     pickle.dump(dirpaths, open(cache_file, 'wb+'))
 
-    rpq = RPQ('init.pl', write_mode=True)#, log=log)
+    rpq = RPQ('init.pl', write_mode=True)
 
     dirhashes = {}
     for path, pathhash in dirpaths.items():

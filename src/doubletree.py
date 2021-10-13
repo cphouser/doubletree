@@ -84,7 +84,7 @@ class InstanceView(ur.Pile):
             selected = focused.get_key()
             if (operation := instance_ops.get(sel_type, {}).get(key)):
                 log.debug(f"{selected} {key} {operation}")
-                mixed_query(self.window.rpq, operation, selected, log=log)
+                mixed_query(self.window.rpq, operation, selected)
                 self.window.frames["OPERATE"].reload()
                 return
             elif key == 'enter':
@@ -216,7 +216,7 @@ class Window(ur.Frame):
         classtreewin = ClassView(self, rpq.query(*class_hierarchy))
         instancetree = InstanceView(self)
         operationgrid = InstanceOps(self)
-        operationview = MpdPlayer(self.format_track, log=log)
+        operationview = MpdPlayer(self.format_track)
         self.frames = {
             "HEAD": header,
             "CLASS": classtreewin,
@@ -317,14 +317,12 @@ def doubletree(rpq):
 
 
 if __name__ == "__main__":
-    #log = logging.getLogger('doubletree')
-    #log.setLevel(logging.DEBUG)
     log_handler = log.FileHandler('dbltree.log', encoding='utf-8')
 
     log_handler.setFormatter(LogFormatter())
     log.basicConfig(level=log.DEBUG, handlers=[log_handler])
 
     log.info(f"\nPID: {os.getpid()}\t\tDoubletree {datetime.now()}")
-    rpq = RPQ('init.pl', log=log)
+    rpq = RPQ('init.pl')
 
     doubletree(rpq)

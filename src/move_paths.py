@@ -20,7 +20,7 @@ if __name__ == "__main__":
                         help='new common root directory')
     args = parser.parse_args()
 
-    rpq = RPQ('init.pl', write_mode=True)#, log=log)
+    rpq = RPQ('init.pl', write_mode=True)
     print("loaded rdf db")
 
     file_uris = rpq.uns_query(
