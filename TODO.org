@@ -30,9 +30,9 @@ instantiate query structure without prolog instance.
 - subclass RPQ and RPQuery to init without pl instance?
 * TUI
 ** header
-- active instance:typeclass
-- active window
-  - search term on '/' ?
+*** DONE active instance:typeclass
+*** DONE active window
+*** search term on '/' ?
 ** TODO instance ops
 this stuff might work globally, see window management
 *** h popup to show useful keypresses
@@ -49,11 +49,10 @@ any better categories for abstracting these for using stuff interchangably?
 - lambda is applying a method of a member window
 - in top level keypress handler focus
 
-
-*** should this be its own class
-- holding the rpq object?
-- holding the window?
-- should keypress operations be their own class w/ these references?
+*** DONE should this be its own class
+- holding the rpq object? *yes*
+- holding the window? *holding a function to update the window*
+*** should keypress operations be their own class w/ these references?
 
 ** InstanceOps
 *** different name from =instance_ops=
@@ -93,5 +92,5 @@ are urwid windows pickleable?
 *** list by file metadata
 *** bulk import albums
 *** search for rdf entries that match metadata
-*** correct tracklists esp with missing entries
+*** STRT correct tracklists esp with missing entries
 ** fix mpd_player ugly wrapping of column contents
