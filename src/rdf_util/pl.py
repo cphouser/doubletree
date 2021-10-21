@@ -1,9 +1,12 @@
 #!/usr/bin/env python3
 
+from typing import Optional, Union
 from frozendict import frozendict
 import logging as log
 import re
 from functools import total_ordering
+from collections import namedtuple
+from dataclasses import dataclass, replace
 
 from pyswip.prolog import Prolog
 from pyswip import easy
@@ -12,11 +15,57 @@ from indexed import IndexedOrderedDict
 
 from rdf_util.namespaces import XCAT, B3
 
+@dataclass
+class ParentVar:
+    variable: str
+    rdf_type: Union[str, bool] = True
+    resource: Optional[str] = None
+
+    def __str__(self):
+        if self.rdf_type is True:
+            eq = str(self.resource)
+        else:
+            eq = f"{self.resource}::{self.rdf_type}"
+        return f"{self.variable} EQUALS {eq}"
+
+    @classmethod
+    def parse(cls, string_expr):
+        var, val_expr = string_expr.split(" EQUALS ")
+        if val_expr:
+            index = val_expr.find("::")
+            if index == -1:
+                return cls(var, val_expr)
+            resource, typ_expr = val_expr.split("::")
+            if not resource:
+                return cls(var, None, typ_str)
+            if typ_expr == "False":
+                return cls(var, resource, False)
+            return cls(var, resource, typ_expr)
+        else:
+            # right error?
+            raise TypeError(f'Invalid Parent Syntax: {string_expr}')
+
+
+    def copy(self):
+        return replace(self)
+
+
 class RPQuery:
-    def __init__(self, pl, key, q_from, q_as=None, parent=('', None),
+    """
+    [WITH Parent EQUALS <RDF_Resource>::<RDF_Type>|<RDF_Resource>|::<RDF_Type>]
+    SELECT Child[::<RDF_Type>|False] [AS <Format Expression>]
+    FROM <Prolog Query> [BY <Format Expression>]
+    [WHERE <Prolog Query>]
+    [RECURSIVE] [NULL] [UNIQUE]
+                [... <Descendant Queries>]
+    """
+    def __init__(self, pl, key, q_from, q_as=None, parent=None,
                  q_where=None, q_by=None, unique=False, recursive=False,
                  desc_q=None, null=False, child_type=None):
-        self._parent = parent
+        if isinstance(parent, str):
+            self.parent = TypedVar.parse(parent)
+        else:
+            self.parent = parent
         self.q_from = q_from
         self.q_where = q_where
         self.q_as = q_as
@@ -33,36 +82,38 @@ class RPQuery:
         self.child_type = child_type
 
 
-    def copy(self, parent=None):
-        par_ref = self._parent
-        if parent:
-            par_ref = (par_ref[0], parent)
-        copy = RPQuery(self.pl, self.key, self.q_from, self.q_as, par_ref,
+    def copy(self, par_ref=None):
+        parent = self.parent.copy()
+        if par_ref:
+            parent.resource = par_ref
+        copy = RPQuery(self.pl, self.key, self.q_from, self.q_as, parent,
                        self.q_where, self.q_by, self.unique, self.recursive,
                        self.desc_q, self.null, self.child_type)
         return copy
 
+    #@property
+    #def parent(self):
+    #    return self._parent[1]
 
-    @property
-    def parent(self):
-        return self._parent[1]
-
-    @parent.setter
-    def parent(self, value):
-        self._parent = (self._parent[0], value)
-
+    #@parent.setter
+    #def parent(self, value):
+    #    self._parent = (self._parent[0], value)
 
     def _query(self):
         if self._results is not None:
             return self._results
-
         # replace parent variable w/ its value
-        p_key, p_value = self._parent
-        if p_value:
-            p_value_str = str(p_value).replace("'", "\\'")
-            q_from = self.q_from.replace(p_key, f"'{p_value_str}'")
-            if self.q_where:
-                q_where = self.q_where.replace(p_key, f"'{p_value_str}'")
+        q_from, q_where = (None, None)
+        if self.parent:
+            if self.parent.resource:
+                p_value_str = self.parent.resource.replace("'", "\\'")
+                q_from = self.q_from.replace(self.parent.variable,
+                                            f"'{p_value_str}'")
+                if self.q_where:
+                    q_where = self.q_where.replace(self.parent.variable,
+                                                f"'{p_value_str}'")
+            if self.parent.rdf_type:
+                pass #(prepend a typedef query)
         else:
             q_from = self.q_from
             if self.q_where:
@@ -172,7 +223,7 @@ class RPQuery:
         if key in self._children:
             return self._children[key]
         if key not in self._results:
-            log.debug(self._parent[1])
+            log.debug(self.parent)
             log.debug(key)
             raise KeyError("Should i handle this?")
         if self.recursive:
@@ -185,15 +236,14 @@ class RPQuery:
 
 
     def __str__(self):
-        string = '\n\t'.join([
-            f'RPQuery: parent({self._parent[0]}:{self._parent[1]})',
-            f'SELECT {self.key} AS "{self.q_as}"',
-            f'FROM {self.q_from}',
-        ])
+        parent = f"WITH {self.parent}\n" if self.parent else ""
+        string = '\n\t'.join([f'RPQuery:\n\t{parent}',
+                              f'SELECT {self.key} AS "{self.q_as}"',
+                              f'FROM {self.q_from} '])
         if self.q_by:
             string += f'BY: {self.q_by}'
         if self.q_where:
-            string += f'n\tWHERE: {self.q_where}'
+            string += f'\n\tWHERE: {self.q_where}'
         flag_string = []
         if self.recursive:
             flag_string += ['(recursive)']

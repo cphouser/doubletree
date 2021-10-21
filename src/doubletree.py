@@ -48,7 +48,7 @@ class Header(ur.Columns):
     @property
     def selected_resource(self):
         if self._selected_resource:
-            return self._selected_resource.parent
+            return self._selected_resource.parent.resource
 
 
 class ClassView(ur.TreeListBox):

@@ -41,7 +41,6 @@ class ExpandingList(ur.WidgetWrap):
         self._w = self.summary
 
 
-
 class TableList(ur.ListBox):
     def __init__(self, col_header):
         header_widgets = []

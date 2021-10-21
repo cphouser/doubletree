@@ -8,7 +8,7 @@ from rdflib.namespace import RDF, RDFS, XSD
 
 from rdf_util.namespaces import XCAT, ShortURI
 from rdf_util.rpq_widgets import RPQ_ListElem, EditWindow
-from rdf_util.pl import xsd_type, escape_string
+from rdf_util.pl import xsd_type, escape_string, ParentVar
 from rdf_util.queries import printed_resource, class_instances
 from util_widgets import TableList, TableRow, TableItem, SelectableText
 from mutagen_util import TagData
@@ -19,8 +19,7 @@ instance_properties = [
     "xcat_label(PredURI, Predicate), "
     "xcat_print(ObjURI, Class, Object)",
     "--{Predicate}--> {Object} <{Class}>",
-    ('Subject', None),
-    #dict(child_type=False)
+    ParentVar('Subject'),
 ]
 
 instance_is_property = [
@@ -29,8 +28,7 @@ instance_is_property = [
     "xcat_label(PredURI, Predicate), "
     "xcat_print(SubjURI, Class, Subject)",
     "{Subject} <{Class}> --{Predicate}--> ",
-    ('ObjURI', None),
-    #dict(child_type=False)
+    ParentVar('ObjURI'),
 ]
 
 class RelatedTerms(EditWindow, ur.WidgetWrap):
@@ -127,9 +125,8 @@ audiofile_data = [
          f"rdf(RecordingURI, '{XCAT.maker}', Artist)"
          f"rdf(RecordingURI, '{XCAT.title}', Title)" ,
          child_type=False,
-         parent=("FileURI", None),
-         null=True)
-]
+         parent=ParentVar("FileURI"),
+         null=True)]
 
 
 release_tracks = [
@@ -137,13 +134,12 @@ release_tracks = [
     f"rdf(Track, '{XCAT.released_on}', Release), "
     f"xcat_filepath(Track, Path)",
     "{TLabel} {Artist} {Path}",
-    dict(
-        parent=('Release', None),
-        q_where=f"xcat_print(Track, TLabel), "
-                f"rdf(Track, '{XCAT.maker}', Maker), "
-                "xcat_print(Maker, Artist), "
-                "xcat_print(Release, RLabel)",
-        q_by=False, null=True)]
+    dict(parent=ParentVar('Release'),
+         q_where=f"xcat_print(Track, TLabel), "
+         f"rdf(Track, '{XCAT.maker}', Maker), "
+         "xcat_print(Maker, Artist), "
+         "xcat_print(Release, RLabel)",
+         q_by=False, null=True)]
 
 
 class PropertyEdit(ur.Columns):
@@ -185,7 +181,7 @@ class RecordingImport(ur.Columns):
     def __init__(self, rpq, path, release, update_resource):
         self.rpq = rpq
         prop_query = self.rpq.query(*release_tracks)
-        prop_query.parent = release
+        prop_query.parent.resource = release
         self.new_rec = dict(rec_props={}, rec_is_prop={}, encoding=None)
         self.recording_node = prop_query.first_item()
         self.path_tagdata = self.tagdata.match_path(path)
@@ -383,7 +379,7 @@ class FindTracklist(EditWindow, ur.WidgetWrap):
 
     def load_instance(self, instance_key):
         prop_query = self.rpq.query(*release_tracks)
-        prop_query.parent = instance_key
+        prop_query.parent.resource = instance_key
         self.parent = instance_key
 
         paths = set()

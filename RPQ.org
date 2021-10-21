@@ -41,8 +41,8 @@ given the canon of facts above, X -*likes*-> *Alice* would retrieve "X = *Bob*".
 In practice currently, these fields are actually not parsed from a string but passed as arguments to the RPQuery constructor. This SQL-like syntax is designed to introduce the conceptual framework of an RPQuery using comparison to SQL (Does this require accurately remembering SQL?).
 
 #+BEGIN_SRC sql
-[WITH Parent EQUALS <RDF_Resource>:<RDF_Type>|<RDF_Resource>:|:<RDF_Type>]
-SELECT Child[:<RDF_Type>|False] [AS <Format Expression>]
+[WITH Parent EQUALS <RDF_Resource>::<RDF_Type>|<RDF_Resource>|::<RDF_Type>]
+SELECT Child[::<RDF_Type>|False] [AS <Format Expression>]
 FROM <Prolog Query> [BY <Format Expression>]
 [WHERE <Prolog Query>]
 [RECURSIVE] [NULL] [UNIQUE]
