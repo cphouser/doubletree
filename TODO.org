@@ -5,8 +5,9 @@
 ** ldatetime tree instances should reflect their printed precision even if there isn't a [persistient] URIRef in the store for it
 ** operation window has all dates within that ldatetime spec
 * queries
-** DONE get rid of =rdf_find= and =mixed_query=
+** DONE get rid of =rdf_find= +and =mixed_query=+
 last two remnants of the old query api, can clean up pl.py immensely after
+*** actually I just made mixed_query use RPQ.simple_query()
 
 ** new queries
 *** songs per artist that don't have a release by that artist
@@ -19,7 +20,7 @@ last two remnants of the old query api, can clean up pl.py immensely after
 ** query api
 *** specify a python function as the view of a query
 *** STRT document
-*** syntax for typechecking parent and children of a query
+*** DONE syntax for typechecking parent and children of a query
 - could use this to get rid of the 'root' in tree views
 
 ** orphan queries

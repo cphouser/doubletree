@@ -31,8 +31,8 @@ class Header(ur.Columns):
         self.window_focus = ur.Text("[FOCUS]")
         left = [("pack", self.window_focus)]
         right = [ur.Padding(ur.Text("&&&&"), align="right", width="pack")]
-        center = [ur.Padding(ur.Text("Selected "), align='right',
-                             width='pack'), self.resource_widget]
+        center = [ur.Padding(ur.Text("Selected "), align='right', width='pack'),
+                  self.resource_widget]
         super().__init__(left + center + right)
 
 
@@ -101,7 +101,7 @@ class InstanceView(ur.Pile):
             self.parent = parent
         self.rpquery = query.copy(self.parent)
         if self.rpquery:
-            log.debug(self.rpquery)
+            log.debug(str(self.rpquery))
             first_node = RPQ_Node(self.rpquery, self.rpquery.keys()[0], None)
             self.tree.body = ur.TreeWalker(first_node)
         else:

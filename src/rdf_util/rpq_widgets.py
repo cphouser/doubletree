@@ -121,6 +121,7 @@ def RPQ_Node(parent_query, key, parent):
     else:
         return RPQ_TreeNode(parent_query, key, parent)
 
+
 class EditWindow(ur.WidgetWrap):
     def __init__(self, widget, update_resource):
         # function to pass the new instance to

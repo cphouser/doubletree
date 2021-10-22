@@ -3,16 +3,14 @@
 import mpd_util
 from rdflib.namespace import RDF, RDFS, OWL, XSD
 from rdf_util.namespaces import XCAT
-from rdf_util.pl import ParentVar
+from rdf_util.pl import ParentVar, ChildVar
 
 printed_resource = [
     'Res',
     'xcat_print(Resource, Class, String), Res=Resource',
     '{Class}: {String} <{Res}>',
     ParentVar('Resource'),
-    #dict(child_type=False)
 ]
-
 
 class_hierarchy = [
     'ChildClass',
@@ -24,13 +22,12 @@ class_hierarchy = [
 ]
 
 class_instances = [
-    "Instance",
+    ChildVar("Instance", rdf_type=False),
     f"rdfs_individual_of(Instance, InstanceClass), "
     f"xcat_print(Instance, Label)",
     "{Label} <{Instance}>",
-    ParentVar('InstanceClass'),
-    dict(child_type=False)
-    ]
+    ParentVar('InstanceClass')
+]
 
 tree_views = {
     'instance_list': {
@@ -44,20 +41,18 @@ tree_views = {
         ], 'root': RDFS.Resource},
     'artist_releases': {
         'query': [
-            ['Artist',
+            [ChildVar('Artist', rdf_type=False),
              f'rdfs_individual_of(Artist, Class), xcat_print(Artist, Name)',
              '{Name}',
              ParentVar('Class', resource=XCAT.Artist),
              f'xcat_has_releases(Artist, _)',
-             dict(child_type=False)
             ],
-            ['Album',
-             f"rdf(Artist, '{XCAT.made}', Album), xcat_print(Album, Name), "
-             f"rdf(Album, '{RDF.type}', '{XCAT.Release}')",
+            [f'Album::{XCAT.Release}',
+             f"rdf(Artist, '{XCAT.made}', Album), xcat_print(Album, Name)",
              '{Name}',
              ParentVar('Artist')
             ],
-            ['[Track]',
+            [ChildVar('Track', unpack_list=True),
              "xcat_tracklist(Release, Track)",
              '{TLabel}',
              ParentVar('Release'),
@@ -67,12 +62,12 @@ tree_views = {
         },
     'dates': {
         'query': [
-            ['DateTime',
+            [ChildVar('DateTime', rdf_type=False),
              'rdfs_individual_of(DateTime, InstanceClass), '
              f"xcat_print_year(DateTime, YLabel)",
              '{YLabel}',
              ParentVar('InstanceClass', resource=XCAT.LDateTime),
-             dict(unique=True, child_type=False)],
+             dict(unique=True)],
             ['DateTime',
              "xcat_same_year(ParentDT, DateTime), "
              "xcat_print_month(DateTime, MLabel, MInt)",

@@ -8,7 +8,7 @@ from rdflib.namespace import RDF, RDFS, XSD
 
 from rdf_util.namespaces import XCAT, ShortURI
 from rdf_util.rpq_widgets import RPQ_ListElem, EditWindow
-from rdf_util.pl import xsd_type, escape_string, ParentVar
+from rdf_util.pl import xsd_type, escape_string, ParentVar, ChildVar
 from rdf_util.queries import printed_resource, class_instances
 from util_widgets import TableList, TableRow, TableItem, SelectableText
 from mutagen_util import TagData
@@ -117,14 +117,13 @@ class MergeTerms(EditWindow, ur.WidgetWrap):
 
 
 audiofile_data = [
-    "Path",
+    "Path::False",
     "xcat_filepath(FileURI, Path), "
     f"rdf(FileURI, '{XCAT.recording}', RecordingURI)",
     dict(q_where=
          f"rdf(RecordingURI, '{XCAT.release}', Release), "
          f"rdf(RecordingURI, '{XCAT.maker}', Artist)"
          f"rdf(RecordingURI, '{XCAT.title}', Title)" ,
-         child_type=False,
          parent=ParentVar("FileURI"),
          null=True)]
 
