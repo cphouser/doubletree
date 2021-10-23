@@ -115,7 +115,7 @@ class InstanceView(ur.Pile):
 
     def load_view(self, sel_class=None):
         view_query = self.window.rpq.querylist(
-                tree_views[self.views.selected()]['query'])
+                tree_views[self.views.selected()])
         self.new_tree(sel_class, view_query)
 
 
@@ -139,8 +139,11 @@ class ViewList(ExpandingList):
         views = []
         for rdfs_class in classes:
             for view_name, view in tree_views.items():
-                if str(view['root']) == rdfs_class:
+                if str(view[0].parent.resource) == rdfs_class:
                     views.append(view_name)
+                else:
+                    log.debug(view[0].parent.resource)
+                    log.debug(rdfs_class)
         self.load_list(views)
 
 

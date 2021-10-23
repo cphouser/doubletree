@@ -21,7 +21,7 @@ date hierarchy reverse sorted, days have time-sorted listens
 *** STRT document
 *** DONE syntax for typechecking parent and children of a query
 - could use this to get rid of the 'root' in tree views
-** orphan queries
+** DONE +orphan+ protoqueries
 instantiate query structure without prolog instance.
 - should we do this as a classmethod of RPQ?
 - should we just make pl instance optional in RPQ constructor
@@ -103,6 +103,6 @@ are urwid windows pickleable?
 *** STRT correct tracklists esp with missing entries
 **** DONE reclassify files as audiofiles using audiofiles from release that are already in the store as recordings
 **** DONE rearrange tracks if necessary
-**** delete files from window before adding as tracklist
+**** TODO delete files from window before adding as tracklist
 
 ** fix mpd_player ugly wrapping of column contents

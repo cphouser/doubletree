@@ -78,6 +78,23 @@ class ChildVar:
         return replace(self)
 
 
+class ProtoQuery:
+    def __init__(self, child, q_from, q_as=None, parent=None, q_where=None,
+                 **kwargs):
+        if isinstance(parent, str):
+            self.parent = ParentVar.parse(parent)
+        else:
+            self.parent = parent
+        if isinstance(child, str):
+            self.child = ChildVar.parse(child)
+        else:
+            self.child = child
+        self.q_from = q_from
+        self.q_as = q_as
+        self.q_where = q_where
+        self.kwargs = kwargs
+
+
 class RPQuery:
     """
     [WITH Parent EQUALS <RDF_Resource>::<RDF_Type>|<RDF_Resource>|::<RDF_Type>]
@@ -293,6 +310,10 @@ class RPQ:
 
 
     def query(self, *args, **kwargs):
+        if args and isinstance(args[0], ProtoQuery):
+            pq = args[0]
+            return RPQuery(self._pl, pq.child, pq.q_from, pq.q_as, pq.parent,
+                           pq.q_where, **pq.kwargs)
         args = list(args)
         kwargs = dict(kwargs)
         for idx, arg in enumerate(args):
@@ -305,6 +326,11 @@ class RPQ:
     def querylist(self, queries):
         desc_query = None
         for query in reversed(queries):
+            if isinstance(query, ProtoQuery):
+                desc_query = RPQuery(self._pl, query.child, query.q_from,
+                                     query.q_as, query.parent, query.q_where,
+                                     desc_q=desc_query, **query.kwargs)
+                continue
             args = []
             kwargs = {}
             if isinstance(query, dict):
