@@ -9,9 +9,37 @@ from rdflib.namespace import RDF, RDFS, XSD
 from rdf_util.namespaces import XCAT, ShortURI
 from rdf_util.rpq_widgets import RPQ_ListElem, EditWindow
 from rdf_util.pl import xsd_type, escape_string, ParentVar, ChildVar
-from rdf_util.queries import printed_resource, class_instances
+from rdf_util.queries import (printed_resource, class_instances, within_date,
+                              during_date)
 from util_widgets import TableList, TableRow, TableItem, SelectableText
 from mutagen_util import TagData
+
+class DateOccurences(EditWindow, ur.WidgetWrap):
+    root = XCAT.LDateTime
+    name = "Date Occurences"
+
+    def __init__(self, rpq, update_resource):
+        self._rows = ur.SimpleFocusListWalker([])
+        self.within_q = rpq.query(*within_date)
+        self.during_q = rpq.query(*during_date)
+        super().__init__(ur.ListBox(self._rows), update_resource)
+
+
+    def keypress(self, size, key):
+        if key == "enter":
+            if self._w.focus:
+                self.update_resource(self._w.focus.elem)
+        elif (res := super().keypress(size, key)):
+            return res
+
+
+    def load_instance(self, instance_key):
+        date_list = self.within_q.copy(instance_key)
+        for datetime, result in date_list.items():
+            self._rows.append(RPQ_ListElem(datetime, result, selectable=False))
+            for subject, res in self.during_q.copy(datetime).items():
+                self._rows.append(RPQ_ListElem(subject, res))
+
 
 instance_properties = [
     'ObjURI',

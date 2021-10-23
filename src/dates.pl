@@ -1,5 +1,7 @@
 #!/usr/bin/env swipl
 
+:- rdf_create_graph('temp').
+
 xcat_print_year(LDateTime, Print):-
     rdf(LDateTime, xcat:year, Year),
     Year = YearInt^^_,
@@ -19,8 +21,7 @@ xcat_print_month(LDateTime, Print, Sort) :-
         (   MonthInt = 9, Print = "Sep");
         (   MonthInt = 10, Print = "Oct");
         (   MonthInt = 11, Print = "Nov");
-        (   MonthInt = 12, Print = "Dec")
-    ),
+        (   MonthInt = 12, Print = "Dec")),
     format(atom(Sort), '~`0t~d~2+', MonthInt).
 
 xcat_print_day(LDateTime, Print) :-
@@ -66,6 +67,7 @@ xcat_print_date(LDateTime, PrintStr) :-
         ), !;
     xcat_print_year(LDateTime, PrintStr).
 
+% would these be faster if I put the recursive bit at the end?
 xcat_same_year(LDateTime, OtherDT) :-
     rdf(LDateTime, xcat:year, Year^^xsd:gYear),
     rdf(OtherDT, xcat:year, Year^^xsd:gYear).
@@ -89,3 +91,40 @@ xcat_same_minute(LDateTime, OtherDT) :-
     xcat_same_hour(LDateTime, OtherDT),
     rdf(LDateTime, xcat:minute, Minute^^xsd:nonNegativeInteger),
     rdf(OtherDT, xcat:minute, Minute^^xsd:nonNegativeInteger).
+
+xcat_within(LDateTime, OtherDT) :-
+    xcat_same_minute(LDateTime, OtherDT), !;
+    xcat_same_hour(LDateTime, OtherDT), !;
+    xcat_same_day(LDateTime, OtherDT), !;
+    xcat_same_month(LDateTime, OtherDT), !;
+    xcat_same_year(LDateTime, OtherDT).
+
+% possible to avoid accidentally making these persist?
+% - use a different graph?
+
+% return the a ldatetime of just the year
+xcat_year(LDateTime, LDT_Year) :-
+    rdf(LDateTime, xcat:year, Year),
+    rdf_create_bnode(LDT_Year),
+    rdf_assert(LDT_Year, rdf:type, xcat:'LDateTime', 'temp'),
+    rdf_assert(LDT_Year, xcat:year, Year, 'temp').
+
+xcat_month(LDateTime, LDT_Month) :-
+    rdf(LDateTime, xcat:month, Month),
+    xcat_year(LDateTime, LDT_Month),
+    rdf_assert(LDT_Month, xcat:month, Month, 'temp').
+
+xcat_day(LDateTime, LDT_Day) :-
+    rdf(LDateTime, xcat:day, Day),
+    xcat_month(LDateTime, LDT_Day),
+    rdf_assert(LDT_Day, xcat:day, Day, 'temp').
+
+xcat_hour(LDateTime, LDT_Hour) :-
+    rdf(LDateTime, xcat:hour, Hour),
+    xcat_day(LDateTime, LDT_Hour),
+    rdf_assert(LDT_Hour, xcat:hour, Hour, 'temp').
+
+xcat_minute(LDateTime, LDT_Minute) :-
+    rdf(LDateTime, xcat:minute, Minute),
+    xcat_month(LDateTime, LDT_Minute),
+    rdf_assert(LDT_Minute, xcat:minute, Minute, 'temp').

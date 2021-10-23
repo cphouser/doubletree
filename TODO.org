@@ -1,28 +1,26 @@
-#+TITLE: Todo
+#+TITLE: TODO
 
 * dates (browsing)
-** assert a loose date w/ the xcat_same_* functions?
+** DONE assert a loose date +w/ the xcat_same_* functions?+
+*** TODO work this out so an existing resource is used if it exists
+*** TODO don't make a new one every time its called
 ** ldatetime tree instances should reflect their printed precision even if there isn't a [persistient] URIRef in the store for it
-** operation window has all dates within that ldatetime spec
+** DONE operation window has all dates within that ldatetime spec
+*** TODO Move to a query within instancetree?
 * queries
 ** DONE get rid of =rdf_find= +and =mixed_query=+
 last two remnants of the old query api, can clean up pl.py immensely after
-*** actually I just made mixed_query use RPQ.simple_query()
-
+*** DONE actually I just made mixed_query use RPQ.simple_query()
 ** new queries
 *** songs per artist that don't have a release by that artist
-
 *** listen history:
-  date hierarchy reverse sorted, days have time-sorted listens
-
+date hierarchy reverse sorted, days have time-sorted listens
 *** file hierarchy
-
 ** query api
 *** specify a python function as the view of a query
 *** STRT document
 *** DONE syntax for typechecking parent and children of a query
 - could use this to get rid of the 'root' in tree views
-
 ** orphan queries
 instantiate query structure without prolog instance.
 - should we do this as a classmethod of RPQ?
@@ -34,6 +32,8 @@ instantiate query structure without prolog instance.
 *** DONE active instance:typeclass
 *** DONE active window
 *** search term on '/' ?
+maybe make this a mixin actually?
+*** fix centering
 ** TODO instance ops
 this stuff might work globally, see window management
 *** h popup to show useful keypresses
@@ -88,10 +88,21 @@ are urwid windows pickleable?
       - return None
   - if children return false focus and return true
 
+** InstanceTree
+*** dynamic descendant queries
+**** define each query as property on schema terms?
+- cycle thru queries for selected instance that populate children w/ like S-Tab
+**** kinda like above but more functional?
+- take some number of schema terms and produce another one (or set of other ones expressing possibility space?
+*** make the window automatically do the "instance_of" part of the query
 * music
-** find music files which aren't imported as xcat:AudioFile
-*** list by file metadata
+** STRT find music files which aren't imported as xcat:AudioFile
+*** STRT list by file metadata
 *** bulk import albums
-*** search for rdf entries that match metadata
+*** STRT search for rdf entries that match metadata
 *** STRT correct tracklists esp with missing entries
+**** DONE reclassify files as audiofiles using audiofiles from release that are already in the store as recordings
+**** DONE rearrange tracks if necessary
+**** delete files from window before adding as tracklist
+
 ** fix mpd_player ugly wrapping of column contents

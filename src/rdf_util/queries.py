@@ -23,17 +23,36 @@ class_hierarchy = [
 
 class_instances = [
     ChildVar("Instance", rdf_type=False),
-    f"rdfs_individual_of(Instance, InstanceClass), "
-    f"xcat_print(Instance, Label)",
+    "rdfs_individual_of(Instance, InstanceClass), "
+    "xcat_print(Instance, Label)",
     "{Label} <{Instance}>",
     ParentVar('InstanceClass')
+]
+
+within_date = [
+    ChildVar("OtherDT", rdf_type=XCAT.LDateTime),
+    "xcat_within(LDateTime, OtherDT), "
+    "rdf_is_iri(OtherDT), xcat_print(OtherDT, DTLabel)",
+    "{DTLabel}",
+    ParentVar('LDateTime', rdf_type=XCAT.LDateTime),
+    dict(q_by="{OtherDT}")
+]
+
+during_date = [
+    ChildVar("Subject"),
+    "rdf(Subject, Predicate, LDateTime), "
+    "xcat_print(Subject, SubjClass, SubjLabel), "
+    "xcat_label(Predicate, PredLabel)",
+    "{SubjLabel} <{SubjClass}> {PredLabel}",
+    ParentVar('LDateTime', rdf_type=XCAT.LDateTime),
+    dict(q_by="{PredLabel}{SubjLabel}")
 ]
 
 tree_views = {
     'instance_list': {
         'query': [
             ['URI',
-             f"rdfs_individual_of(URI, InstanceClass)",
+             "rdfs_individual_of(URI, InstanceClass)",
              '[{Class}] {Label} <{URI}>',
              ParentVar('InstanceClass', RDFS.Resource),
              'xcat_print(URI, Class, Label)',
@@ -42,10 +61,10 @@ tree_views = {
     'artist_releases': {
         'query': [
             [ChildVar('Artist', rdf_type=False),
-             f'rdfs_individual_of(Artist, Class), xcat_print(Artist, Name)',
+             'rdfs_individual_of(Artist, Class), xcat_print(Artist, Name)',
              '{Name}',
              ParentVar('Class', resource=XCAT.Artist),
-             f'xcat_has_releases(Artist, _)',
+             'xcat_has_releases(Artist, _)',
             ],
             [f'Album::{XCAT.Release}',
              f"rdf(Artist, '{XCAT.made}', Album), xcat_print(Album, Name)",
@@ -62,36 +81,38 @@ tree_views = {
         },
     'dates': {
         'query': [
-            [ChildVar('DateTime', rdf_type=False),
+            [ChildVar('LDT_Year', rdf_type=False),
              'rdfs_individual_of(DateTime, InstanceClass), '
-             f"xcat_print_year(DateTime, YLabel)",
+             'xcat_year(DateTime, LDT_Year), '
+             "xcat_print_year(LDT_Year, YLabel)",
              '{YLabel}',
              ParentVar('InstanceClass', resource=XCAT.LDateTime),
              dict(unique=True)],
-            ['DateTime',
+            ['LDT_Month',
              "xcat_same_year(ParentDT, DateTime), "
-             "xcat_print_month(DateTime, MLabel, MInt)",
+             "xcat_month(DateTime, LDT_Month), "
+             "xcat_print_month(LDT_Month, MLabel, MInt)",
              ("{MLabel}"),
              ParentVar('ParentDT'),
              dict(unique=True, q_by="{MInt}")],
-            ['DateTime',
+            ['LDT_Day',
              "xcat_same_month(ParentDT, DateTime), "
-             f"rdf(DateTime, '{XCAT.day}', Day), "
-             "xcat_print_day(DateTime, DLabel)",
+             "xcat_day(DateTime, LDT_Day), "
+             "xcat_print_day(LDT_Day, DLabel)",
              ("{DLabel}"),
              ParentVar('ParentDT'),
              dict(unique=True, q_by='{DateTime}')],
-            ['DateTime',
+            ['LDT_Hour',
              "xcat_same_day(ParentDT, DateTime), "
-             f"rdf(DateTime, '{XCAT.hour}', Hour),"
-             " xcat_print_hour(DateTime, HLabel)",
+             "xcat_hour(DateTime, LDT_Hour), "
+             "xcat_print_hour(LDT_Hour, HLabel)",
              ("{HLabel}:00"),
              ParentVar('ParentDT'),
              dict(unique=True, q_by='{DateTime}')],
-            ['DateTime',
-             "xcat_same_hour(ParentDT, DateTime),"
-             " rdf(DateTime, '{XCAT.minute}', Minute),"
-             " xcat_print(DateTime, DTLabel)",
+            ['LDT_Minute',
+             "xcat_same_hour(ParentDT, DateTime), "
+             "xcat_minute(DateTime, LDT_Minute), "
+             "xcat_print(LDT_Minute, DTLabel)",
              ("{DTLabel}"),
              ParentVar('ParentDT'),
              dict(unique=True, q_by='{DateTime}')],
