@@ -99,32 +99,54 @@ xcat_within(LDateTime, OtherDT) :-
     xcat_same_month(LDateTime, OtherDT), !;
     xcat_same_year(LDateTime, OtherDT).
 
-% possible to avoid accidentally making these persist?
-% - use a different graph?
-
 % return the a ldatetime of just the year
 xcat_year(LDateTime, LDT_Year) :-
+    (   xcat_same_year(LDateTime, LDT_Year),
+        \+ rdf(LDT_Year, xcat:month, _), !);
+    xcat_blank_year(LDateTime, LDT_Year).
+
+xcat_month(LDateTime, LDT_Month) :-
+    (   xcat_same_month(LDateTime, LDT_Month),
+        \+ rdf(LDT_Month, xcat:day, _), !);
+    xcat_blank_month(LDateTime, LDT_Month).
+
+xcat_day(LDateTime, LDT_Day) :-
+    (   xcat_same_day(LDateTime, LDT_Day),
+        \+ rdf(LDT_Day, xcat:hour, _), !);
+    xcat_blank_day(LDateTime, LDT_Day).
+
+xcat_hour(LDateTime, LDT_Hour) :-
+    (   xcat_same_hour(LDateTime, LDT_Hour),
+        \+ rdf(LDT_Hour, xcat:minute, _), !);
+    xcat_blank_hour(LDateTime, LDT_Hour).
+
+xcat_minute(LDateTime, LDT_Minute) :-
+    (   xcat_same_minute(LDateTime, LDT_Minute),
+        \+ rdf(LDT_Minute, xcat:second, _), !);
+    xcat_blank_minute(LDateTime, LDT_Minute).
+
+xcat_blank_year(LDateTime, LDT_Year) :-
     rdf(LDateTime, xcat:year, Year),
     rdf_create_bnode(LDT_Year),
     rdf_assert(LDT_Year, rdf:type, xcat:'LDateTime', 'temp'),
     rdf_assert(LDT_Year, xcat:year, Year, 'temp').
 
-xcat_month(LDateTime, LDT_Month) :-
+xcat_blank_month(LDateTime, LDT_Month) :-
     rdf(LDateTime, xcat:month, Month),
-    xcat_year(LDateTime, LDT_Month),
+    xcat_blank_year(LDateTime, LDT_Month),
     rdf_assert(LDT_Month, xcat:month, Month, 'temp').
 
-xcat_day(LDateTime, LDT_Day) :-
+xcat_blank_day(LDateTime, LDT_Day) :-
     rdf(LDateTime, xcat:day, Day),
-    xcat_month(LDateTime, LDT_Day),
+    xcat_blank_month(LDateTime, LDT_Day),
     rdf_assert(LDT_Day, xcat:day, Day, 'temp').
 
-xcat_hour(LDateTime, LDT_Hour) :-
+xcat_blank_hour(LDateTime, LDT_Hour) :-
     rdf(LDateTime, xcat:hour, Hour),
-    xcat_day(LDateTime, LDT_Hour),
+    xcat_blank_day(LDateTime, LDT_Hour),
     rdf_assert(LDT_Hour, xcat:hour, Hour, 'temp').
 
-xcat_minute(LDateTime, LDT_Minute) :-
+xcat_blank_minute(LDateTime, LDT_Minute) :-
     rdf(LDateTime, xcat:minute, Minute),
-    xcat_month(LDateTime, LDT_Minute),
+    xcat_blank_month(LDateTime, LDT_Minute),
     rdf_assert(LDT_Minute, xcat:minute, Minute, 'temp').

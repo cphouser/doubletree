@@ -2,9 +2,10 @@
 
 * dates (browsing)
 ** DONE assert a loose date +w/ the xcat_same_* functions?+
-*** TODO work this out so an existing resource is used if it exists
-*** TODO don't make a new one every time its called
-** ldatetime tree instances should reflect their printed precision even if there isn't a [persistient] URIRef in the store for it
+*** DONE work this out so an existing resource is used if it exists
+*** DONE don't make a new one every time its called
+** DONE ldatetime tree instances should reflect their printed precision even if there isn't a [persistient] URIRef in the store for it
+i think this is done?
 ** DONE operation window has all dates within that ldatetime spec
 *** TODO Move to a query within instancetree?
 * queries
