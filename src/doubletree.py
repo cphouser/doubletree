@@ -2,9 +2,7 @@
 
 import os
 import logging as log
-import functools
 from datetime import datetime
-import traceback
 
 from rdflib.namespace import RDF, RDFS, XSD
 from pyswip.prolog import Prolog, PrologError
@@ -25,7 +23,7 @@ from rdf_util.queries import (tree_views, instance_ops, class_hierarchy,
 
 class Header(ur.Columns):
     def __init__(self, window):
-        self.resource_print_q = window.rpq.query(*printed_resource)
+        self.resource_print_q = window.rpq.query(printed_resource)
         self.resource_widget = ur.Text("-None-")
         self._selected_resource = None #???
         self.window_focus = ur.Text("[FOCUS]")
@@ -141,9 +139,6 @@ class ViewList(ExpandingList):
             for view_name, view in tree_views.items():
                 if str(view[0].parent.resource) == rdfs_class:
                     views.append(view_name)
-                else:
-                    log.debug(view[0].parent.resource)
-                    log.debug(rdfs_class)
         self.load_list(views)
 
 
@@ -211,12 +206,12 @@ class OperationList(ExpandingList):
 class Window(ur.Frame):
     def __init__(self, rpq, update_rate=5):
         self.rpq = rpq
-        self.format_query = rpq.query(*track_format_query)
+        self.format_query = rpq.query(track_format_query)
         self.track_cache = {}
         self.update_rate = update_rate
 
         header = Header(self)
-        classtreewin = ClassView(self, rpq.query(*class_hierarchy))
+        classtreewin = ClassView(self, rpq.query(class_hierarchy))
         instancetree = InstanceView(self)
         operationgrid = InstanceOps(self)
         operationview = MpdPlayer(self.format_track)

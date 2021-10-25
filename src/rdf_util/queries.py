@@ -5,48 +5,39 @@ from rdflib.namespace import RDF, RDFS, OWL, XSD
 from rdf_util.namespaces import XCAT
 from rdf_util.pl import ParentVar, ChildVar, ProtoQuery
 
-printed_resource = [
-    'Res',
-    'xcat_print(Resource, Class, String), Res=Resource',
-    '{Class}: {String} <{Res}>',
-    ParentVar('Resource'),
-]
+printed_resource = ProtoQuery('Res',
+                              'xcat_print(Resource, Class, String), '
+                              'Res=Resource',
+                              '{Class}: {String} <{Res}>',
+                              ParentVar('Resource'))
 
-class_hierarchy = [
-    'ChildClass',
-    f"rdf(ChildClass, '{RDFS.subClassOf}', ParentClass), "
-    'xcat_label(ChildClass, Label)',
-    '{Label}',
-    ParentVar('ParentClass', resource=RDFS.Resource),
-    dict(recursive=True)
-]
+class_hierarchy = ProtoQuery('ChildClass',
+                             f"rdf(ChildClass, '{RDFS.subClassOf}', "
+                             "ParentClass), xcat_label(ChildClass, Label)",
+                             '{Label}',
+                             ParentVar('ParentClass', resource=RDFS.Resource),
+                             recursive=True)
 
-class_instances = [
-    ChildVar("Instance", rdf_type=False),
-    "rdfs_individual_of(Instance, InstanceClass), "
-    "xcat_print(Instance, Label)",
-    "{Label} <{Instance}>",
-    ParentVar('InstanceClass')
-]
+class_instances = ProtoQuery(ChildVar("Instance", rdf_type=False),
+                             "rdfs_individual_of(Instance, InstanceClass), "
+                             "xcat_print(Instance, Label)",
+                             "{Label} <{Instance}>",
+                             ParentVar('InstanceClass'))
 
-within_date = [
-    ChildVar("OtherDT", rdf_type=XCAT.LDateTime),
-    "xcat_within(LDateTime, OtherDT), "
-    "rdf_is_iri(OtherDT), xcat_print(OtherDT, DTLabel)",
-    "{DTLabel}",
-    ParentVar('LDateTime', rdf_type=XCAT.LDateTime),
-    dict(q_by="{OtherDT}")
-]
+within_date = ProtoQuery(ChildVar("OtherDT", rdf_type=XCAT.LDateTime),
+                         "xcat_within(LDateTime, OtherDT), "
+                         "rdf_is_iri(OtherDT), xcat_print(OtherDT, DTLabel)",
+                         "{DTLabel}",
+                         ParentVar('LDateTime', rdf_type=XCAT.LDateTime),
+                         q_by="{OtherDT}")
 
-during_date = [
-    ChildVar("Subject"),
-    "rdf(Subject, Predicate, LDateTime), "
-    "xcat_print(Subject, SubjClass, SubjLabel), "
-    "xcat_label(Predicate, PredLabel)",
-    "{SubjLabel} <{SubjClass}> {PredLabel}",
-    ParentVar('LDateTime', rdf_type=XCAT.LDateTime),
-    dict(q_by="{PredLabel}{SubjLabel}")
-]
+during_date = ProtoQuery(ChildVar("Subject"),
+                         "rdf(Subject, Predicate, LDateTime), "
+                         "xcat_print(Subject, SubjClass, SubjLabel), "
+                         "xcat_label(Predicate, PredLabel)",
+                         "{SubjLabel} <{SubjClass}> {PredLabel}",
+                         ParentVar('LDateTime', rdf_type=XCAT.LDateTime),
+                         q_by="{PredLabel}{SubjLabel}")
 
 tree_views = {
     'instance_list': [
@@ -113,7 +104,7 @@ tree_views = {
     ]
 }
 
-track_format_query = [
+track_format_query = ProtoQuery(
     "RecURI",
     "xcat_filepath(RecURI, FilePathStr), xcat_print(RecURI, Recording)",
     ['Recording', 'Artist', 'Release', 'Year'],
@@ -122,8 +113,8 @@ track_format_query = [
     "rdf(RecURI, xcat:released_on, RelURI), xcat_print(RelURI, Release), "
     "rdf(RelURI, xcat:published_during, DateTime), "
     "rdf(DateTime, xcat:year, YearLit), xcat_print(YearLit, Year)",
-    dict(null=True)
-]
+    null=True)
+
 
 instance_ops = {
     str(XCAT.Recording): {

@@ -8,20 +8,27 @@ from rdflib.namespace import RDF, RDFS, XSD
 
 from rdf_util.namespaces import XCAT, ShortURI
 from rdf_util.rpq_widgets import RPQ_ListElem, EditWindow
-from rdf_util.pl import xsd_type, escape_string, ParentVar, ChildVar
+from rdf_util.pl import (xsd_type, escape_string, ParentVar, ChildVar,
+                         ProtoQuery)
 from rdf_util.queries import (printed_resource, class_instances, within_date,
                               during_date)
 from util_widgets import TableList, TableRow, TableItem, SelectableText
 from mutagen_util import TagData
 
 class DateOccurences(EditWindow, ur.WidgetWrap):
+    """Selectable list of resources occuring during the selected resource.
+
+    Each existing LDateTime URI within the selected resource is listed, along
+    with the triples containing that URI as an object. Selecting one of these
+    loads the subject as the globally selected resource.
+    """
     root = XCAT.LDateTime
     name = "Date Occurences"
 
     def __init__(self, rpq, update_resource):
         self._rows = ur.SimpleFocusListWalker([])
-        self.within_q = rpq.query(*within_date)
-        self.during_q = rpq.query(*during_date)
+        self.within_q = rpq.query(within_date)
+        self.during_q = rpq.query(during_date)
         super().__init__(ur.ListBox(self._rows), update_resource)
 
 
@@ -41,33 +48,33 @@ class DateOccurences(EditWindow, ur.WidgetWrap):
                 self._rows.append(RPQ_ListElem(subject, res))
 
 
-instance_properties = [
-    'ObjURI',
-    "rdf(Subject, PredURI, ObjURI), "
-    "xcat_label(PredURI, Predicate), "
-    "xcat_print(ObjURI, Class, Object)",
-    "--{Predicate}--> {Object} <{Class}>",
-    ParentVar('Subject'),
-]
+instance_properties = ProtoQuery('ObjURI',
+                                 "rdf(Subject, PredURI, ObjURI), "
+                                 "xcat_label(PredURI, Predicate), "
+                                 "xcat_print(ObjURI, Class, Object)",
+                                 "--{Predicate}--> {Object} <{Class}>",
+                                 ParentVar('Subject'))
 
-instance_is_property = [
-    'SubjURI',
-    "rdf(SubjURI, PredURI, ObjURI), "
-    "xcat_label(PredURI, Predicate), "
-    "xcat_print(SubjURI, Class, Subject)",
-    "{Subject} <{Class}> --{Predicate}--> ",
-    ParentVar('ObjURI'),
-]
+instance_is_property = ProtoQuery('SubjURI',
+                                  "rdf(SubjURI, PredURI, ObjURI), "
+                                  "xcat_label(PredURI, Predicate), "
+                                  "xcat_print(SubjURI, Class, Subject)",
+                                  "{Subject} <{Class}> --{Predicate}--> ",
+                                  ParentVar('ObjURI'))
 
 class RelatedTerms(EditWindow, ur.WidgetWrap):
+    """Subject and object relations to other resources.
+
+    Related resources can be globally selected.
+    """
     root = RDFS.Resource
     name = "Related Terms"
 
     def __init__(self, rpq, update_resource):
         self.has_props = ur.ListBox(ur.SimpleFocusListWalker([]))
         self.is_props = ur.ListBox(ur.SimpleFocusListWalker([]))
-        self.prop_query = rpq.query(*instance_properties)
-        self.rev_prop_query = rpq.query(*instance_is_property)
+        self.prop_query = rpq.query(instance_properties)
+        self.rev_prop_query = rpq.query(instance_is_property)
         super().__init__(ur.Columns([self.is_props, self.has_props]),
                          update_resource)
 
@@ -91,14 +98,19 @@ class RelatedTerms(EditWindow, ur.WidgetWrap):
 
 
 class MergeTerms(EditWindow, ur.WidgetWrap):
+    """Edit the graph by replacing all relations of the selected resource.
+
+    Presents a list of resources of the same type as candidates for inheriting
+    the selected resource's properties (and references as a property object).
+    """
     root = RDFS.Resource
     name = "Merge Term Into"
 
     def __init__(self, rpq, update_resource):
         self.rpq = rpq
-        self.name_query = self.rpq.query(*printed_resource)
+        self.name_query = self.rpq.query(printed_resource)
         #self.name_query.q_as = "{Class}: {String} <{Res}>"
-        self.instances = self.rpq.query(*class_instances)
+        self.instances = self.rpq.query(class_instances)
         self.current_resource = ur.Text("...")
         self.current_resource_key = None
         self.resource_list = ur.SimpleFocusListWalker([])
@@ -144,32 +156,29 @@ class MergeTerms(EditWindow, ur.WidgetWrap):
                          f"'{self.new_resource}')")
 
 
-audiofile_data = [
+audiofile_data = ProtoQuery(
     "Path::False",
     "xcat_filepath(FileURI, Path), "
     f"rdf(FileURI, '{XCAT.recording}', RecordingURI)",
-    dict(q_where=
-         f"rdf(RecordingURI, '{XCAT.release}', Release), "
-         f"rdf(RecordingURI, '{XCAT.maker}', Artist)"
-         f"rdf(RecordingURI, '{XCAT.title}', Title)" ,
-         parent=ParentVar("FileURI"),
-         null=True)]
+    parent=ParentVar("FileURI"), null=True,
+    q_where=f"rdf(RecordingURI, '{XCAT.release}', Release), "
+            f"rdf(RecordingURI, '{XCAT.maker}', Artist), "
+            f"rdf(RecordingURI, '{XCAT.title}', Title)")
 
-
-release_tracks = [
+release_tracks = ProtoQuery(
     'Track',
     f"rdf(Track, '{XCAT.released_on}', Release), "
     f"xcat_filepath(Track, Path)",
     "{TLabel} {Artist} {Path}",
-    dict(parent=ParentVar('Release'),
-         q_where=f"xcat_print(Track, TLabel), "
-         f"rdf(Track, '{XCAT.maker}', Maker), "
-         "xcat_print(Maker, Artist), "
-         "xcat_print(Release, RLabel)",
-         q_by=False, null=True)]
-
+    parent=ParentVar('Release'),
+    q_where=f"xcat_print(Track, TLabel), "
+            f"rdf(Track, '{XCAT.maker}', Maker), "
+            "xcat_print(Maker, Artist), "
+            "xcat_print(Release, RLabel)",
+    q_by=False, null=True)
 
 class PropertyEdit(ur.Columns):
+    """Used by RecordingImport for editing property fields for an import."""
     def __init__(self, prop, prop_lbl, val, val_type, alt_val=None):
         self.short = ShortURI()
         self.prop = prop
@@ -200,6 +209,7 @@ class PropertyEdit(ur.Columns):
 
 
 class RecordingImport(ur.Columns):
+    """Loaded From FindTracklist to reclassify a File as an AudioFile"""
     tagdata = TagData()
     tag_mapping = {
         f"{XCAT.title}": lambda d: (d.get("title") or [""])[0]
@@ -207,7 +217,7 @@ class RecordingImport(ur.Columns):
 
     def __init__(self, rpq, path, release, update_resource):
         self.rpq = rpq
-        prop_query = self.rpq.query(*release_tracks)
+        prop_query = self.rpq.query(release_tracks)
         prop_query.parent.resource = release
         self.new_rec = dict(rec_props={}, rec_is_prop={}, encoding=None)
         self.recording_node = prop_query.first_item()
@@ -263,7 +273,7 @@ class RecordingImport(ur.Columns):
 
     def _recording_is_property(self):
         rev_prop_query = self.rpq.query(
-                *instance_is_property).copy(self.recording_node["Track"])
+                instance_is_property).copy(self.recording_node["Track"])
         fields = []
         for sbj, res in rev_prop_query.items():
             if (tag_func := self.tag_mapping.get(res["PredURI"])):
@@ -283,7 +293,7 @@ class RecordingImport(ur.Columns):
 
     def _recording_properties(self):
         prop_query = self.rpq.query(
-                *instance_properties).copy(self.recording_node["Track"])
+                instance_properties).copy(self.recording_node["Track"])
         fields = []
         for obj, res in prop_query.items():
             if (tag_func := self.tag_mapping.get(res["PredURI"])):
@@ -330,7 +340,7 @@ class RecordingImport(ur.Columns):
 class FindTracklist(EditWindow, ur.WidgetWrap):
     root = XCAT.Release
     name = "Find Tracklist"
-    columns = ["#", "Tag Release", "Tag Title", "Title", "Artist", "Encoding",
+    columns = ["#", "Tag Release", "Tag Title", "Title", "Artist", "Codec",
                "Path"]
     tagdata = TagData()
 
@@ -405,7 +415,7 @@ class FindTracklist(EditWindow, ur.WidgetWrap):
 
 
     def load_instance(self, instance_key):
-        prop_query = self.rpq.query(*release_tracks)
+        prop_query = self.rpq.query(release_tracks)
         prop_query.parent.resource = instance_key
         self.parent = instance_key
 
@@ -437,5 +447,4 @@ class FindTracklist(EditWindow, ur.WidgetWrap):
                                TableItem(path)]
                 self._w.add_row(path, widget_list)
 
-        self._w.align()
         self._w.sort_by("#")
