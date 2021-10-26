@@ -106,4 +106,4 @@ are urwid windows pickleable?
 **** DONE rearrange tracks if necessary
 **** TODO delete files from window before adding as tracklist
 
-** fix mpd_player ugly wrapping of column contents
+** DONE fix mpd_player ugly wrapping of column contents

@@ -5,6 +5,7 @@ from inspect import getmembers
 import urwid as ur
 import musicpd
 import time
+from table_util import balance_columns
 
 def format_track(dictlike):
     return {
@@ -27,15 +28,15 @@ class MpdPlayer(ur.Frame):
 
         col_headings = list(column_func({}).keys())
         col_headings.remove('key')
-        col_headings.insert(0, ' ')
-        self.header = ur.Columns([ur.Text(key) for key in col_headings],
-                                 dividechars=1)
-        col_widths = [len(heading) for heading in col_headings]
+        col_headings.insert(0, ' ') # FIXME create list with this
+        self.header = ur.Columns([ur.Text(key, wrap="ellipsis")
+                                  for key in col_headings], dividechars=1)
+        col_widths = [len(heading) for heading in col_headings[1:]]
 
         self.footer = CurrentSong(self.client)
-        self.body = Queue(self.client, column_func, col_widths)
+        self.body = Queue(self.client, column_func, col_widths,
+                          self.size_heading)
         self.reload()
-
 
         super().__init__(self.body, self.header, self.footer)
 
@@ -66,9 +67,12 @@ class MpdPlayer(ur.Frame):
         self.footer.load_bar()
         self.footer.update_bar()
         self.client.disconnect()
-        for idx, (widget, _) in enumerate(self.header.contents):
-            self.header.contents[idx] = widget, ur.Columns.options(
-                    width_amount=self.body.col_widths[idx])
+
+
+    def size_heading(self, col_widths):
+        for idx, (widget, _) in enumerate(self.header.contents[1:]):
+            self.header.contents[idx+1] = widget, ur.Columns.options(
+                    width_amount=col_widths[idx])
 
 
     def toggle_play(self):
@@ -154,13 +158,16 @@ def sec_format(total_seconds):
 
 
 class Queue(ur.ListBox):
-    def __init__(self, client, column_func, header_widths):
+    def __init__(self, client, column_func, header_widths, resize_func):
         self.column_func = column_func
         self.client = client
         self.walker = ur.SimpleFocusListWalker([])
         self.header_widths = header_widths
+        self.resize_func = resize_func
         self._playing = None
         self.paused = False
+        self.balanced = True # whether columns have been spaced
+        self.col_widths = None
         super().__init__(self.walker)
 
 
@@ -184,25 +191,35 @@ class Queue(ur.ListBox):
 
     def load_queue(self):
         focused_idx = self.focus_position if self.focus else 0
-        self.col_widths = self.header_widths
         self.walker.clear()
         for song in self.client.playlistinfo():
-            #log.debug(song)
             item = ListItem(**self.column_func(song))
-            self.col_widths = [max(col, item.min_widths[i])
-                               for i, col in enumerate(self.col_widths)]
             self.walker.append(item)
         if self.focus and len(self.walker) > focused_idx:
             self.focus_position = focused_idx
-        self.reflow()
+        self.balanced = False
 
 
-    def reflow(self):
-        #log.debug(self.col_widths)
+    def reflow(self, table_width):
+        widths = [[width] for width in self.header_widths]
         for listitem in self.walker:
-            for i, w in enumerate(self.col_widths):
-                listitem.contents[i] = (listitem.contents[i][0],
-                                        ur.Columns.options(width_amount=w))
+            for i, w in enumerate(listitem.min_widths):
+                widths[i].append(w)
+        [width.sort(reverse=True) for width in widths]
+        col_widths = [w - 1 for w in balance_columns(widths, table_width)]
+        for listitem in self.walker:
+            for i, w in enumerate(col_widths):
+                listitem.contents[i+1] = (listitem.contents[i+1][0],
+                                          ur.Columns.options(width_amount=w))
+        self.resize_func(col_widths)
+        balanced = True
+
+
+    def render(self, size, focus=False ):
+        if not self.balanced:
+            cols, _ = size
+            self.reflow(cols)
+        return super().render(size, focus)
 
 
 class ListItem(ur.Columns):
@@ -214,12 +231,12 @@ class ListItem(ur.Columns):
         widget_list = [self.NOT_PLAYING]
         self.key = key
         self._playing = False
-        self.min_widths = [1]
+        self.min_widths = []
         self.paused = False
         for arg, val in kwargs.items():
             #log.debug(f'{arg}: {val}')
-            self.min_widths += [len(val)]
-            widget_list.append(ur.Text(val))
+            self.min_widths += [len(val) + 1]
+            widget_list.append(ur.Text(val, wrap="ellipsis"))
         #log.debug(self.min_widths)
         super().__init__(widget_list, dividechars=1)
 
