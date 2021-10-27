@@ -22,6 +22,7 @@ date hierarchy reverse sorted, days have time-sorted listens
 *** STRT document
 *** DONE syntax for typechecking parent and children of a query
 - could use this to get rid of the 'root' in tree views
+*** parse whole queries
 ** DONE +orphan+ protoqueries
 instantiate query structure without prolog instance.
 - should we do this as a classmethod of RPQ?
@@ -96,7 +97,8 @@ are urwid windows pickleable?
 - cycle thru queries for selected instance that populate children w/ like S-Tab
 **** kinda like above but more functional?
 - take some number of schema terms and produce another one (or set of other ones expressing possibility space?
-*** make the window automatically do the "instance_of" part of the query
+*** KILL make the window automatically do the "instance_of" part of the query
+** autofill for an rdf resource
 * music
 ** STRT find music files which aren't imported as xcat:AudioFile
 *** STRT list by file metadata

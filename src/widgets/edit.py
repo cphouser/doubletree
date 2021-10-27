@@ -6,14 +6,13 @@ from pprint import pformat
 import urwid as ur
 from rdflib.namespace import RDF, RDFS, XSD
 
-from rdf_util.namespaces import XCAT, ShortURI
-from rdf_util.rpq_widgets import RPQ_ListElem, EditWindow
-from rdf_util.pl import (xsd_type, escape_string, ParentVar, ChildVar,
-                         ProtoQuery)
-from rdf_util.queries import (printed_resource, class_instances, within_date,
+from util.mutagen import TagData
+from util.rdf.namespaces import XCAT, ShortURI
+from util.rdf.pl import xsd_type, escape_string, ParentVar, ChildVar, ProtoQuery
+from util.rdf.queries import (printed_resource, class_instances, within_date,
                               during_date)
-from util_widgets import TableList, TableRow, TableItem, SelectableText
-from mutagen_util import TagData
+from widgets.rpq import RPQ_ListElem, EditWindow
+from widgets.util import TableList, TableRow, TableItem, SelectableText
 
 class DateOccurences(EditWindow, ur.WidgetWrap):
     """Selectable list of resources occuring during the selected resource.

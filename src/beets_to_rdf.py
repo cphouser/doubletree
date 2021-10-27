@@ -12,12 +12,12 @@ from rdflib.namespace import RDF, RDFS, OWL, XSD
 from beets.library import Library
 from pyswip.prolog import Prolog
 
-from rdf_util import discogs
-from rdf_util.namespaces import B3, XCAT
-from rdf_util.b3 import file_hash, hashlist_hash
-from rdf_util.pl import (xsd_type, LDateTime, entries_to_dir,
+from util.rdf import discogs
+from util.rdf.namespaces import B3, XCAT
+from util.rdf.b3 import file_hash, hashlist_hash
+from util.rdf.pl import (xsd_type, LDateTime, entries_to_dir,
                          TrackList, rdf_unify, RPQ, nometa_file_node)
-from log_util import LogFormatter
+from util.log import LogFormatter
 
 release_dict = {}
 

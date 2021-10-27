@@ -8,17 +8,17 @@ from rdflib.namespace import RDF, RDFS, XSD
 from pyswip.prolog import Prolog, PrologError
 import urwid as ur
 
-import mpd_util
-from palette import palette
-from log_util import LogFormatter
-from mpd_player import MpdPlayer
+from widgets.mpd_player import MpdPlayer
+from widgets.util import ExpandingList
+from widgets.edit import RelatedTerms
+from widgets.rpq import RPQ_Node, RPQ_ListElem, EditWindows
 
-from util_widgets import ExpandingList
-from edit_widgets import RelatedTerms
-from rdf_util.namespaces import XCAT
-from rdf_util.pl import mixed_query, all_classes, RPQ, VarList
-from rdf_util.rpq_widgets import RPQ_Node, RPQ_ListElem, EditWindows
-from rdf_util.queries import (tree_views, instance_ops, class_hierarchy,
+from util import mpd
+from util.log import LogFormatter
+from util.palette import palette
+from util.rdf.namespaces import XCAT
+from util.rdf.pl import mixed_query, all_classes, RPQ, VarList
+from util.rdf.queries import (tree_views, instance_ops, class_hierarchy,
                               track_format_query, printed_resource)
 
 class Header(ur.Columns):

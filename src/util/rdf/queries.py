@@ -2,10 +2,11 @@
 
 import os
 
-import mpd_util
 from rdflib.namespace import RDF, RDFS, OWL, XSD
-from rdf_util.namespaces import XCAT
-from rdf_util.pl import ParentVar, ChildVar, ProtoQuery, VarList
+
+import util.mpd as mpd
+from util.rdf.namespaces import XCAT
+from util.rdf.pl import ParentVar, ChildVar, ProtoQuery, VarList
 
 printed_resource = ProtoQuery('Res',
                               'xcat_print(Resource, Class, String), '
@@ -135,9 +136,9 @@ track_format_query = ProtoQuery(
 
 instance_ops = {
     str(XCAT.Recording): {
-        'a': ("xcat_filepath('{}', Path)", mpd_util.add_to_list),
+        'a': ("xcat_filepath('{}', Path)", mpd.add_to_list),
     },
     str(XCAT.Release): {
-        'a': ("xcat_tracklist_filepaths('{}', Paths)", mpd_util.add_to_list)
+        'a': ("xcat_tracklist_filepaths('{}', Paths)", mpd.add_to_list)
     }
 }

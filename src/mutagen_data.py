@@ -10,7 +10,8 @@ from pprint import pprint, pformat
 
 import mutagen
 from sqlitedict import SqliteDict
-from conf_file import Config
+
+from util.conf_file import Config
 
 class TagData:
     DATA_ROOTS = Config["base_paths"]

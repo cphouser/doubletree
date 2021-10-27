@@ -13,7 +13,7 @@ from pyswip import easy
 from rdflib.namespace import RDF, RDFS, XSD
 from indexed import IndexedOrderedDict
 
-from rdf_util.namespaces import XCAT, B3
+from util.rdf.namespaces import XCAT, B3
 
 @dataclass
 class ParentVar:

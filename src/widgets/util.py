@@ -6,7 +6,7 @@ import logging as log
 
 import urwid as ur
 
-from table_util import balance_columns
+from util.table import balance_columns
 
 
 class ExpandingList(ur.WidgetWrap):

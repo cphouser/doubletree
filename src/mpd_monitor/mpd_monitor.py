@@ -6,8 +6,8 @@ from datetime import datetime
 import musicpd
 from pyswip.prolog import Prolog
 
-from rdf_util.pl import RPQ, LDateTime, xsd_type
-from rdf_util.namespaces import XCAT
+from util.rdf.pl import RPQ, LDateTime, xsd_type
+from util.rdf.namespaces import XCAT
 
 def mpd_monitor(client, client_kwargs):
     status = {}

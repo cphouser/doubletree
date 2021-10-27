@@ -138,9 +138,9 @@ class EditWindow(ur.WidgetWrap):
 
 
 def EditWindows(root=None):
-    import edit_widgets
+    import widgets.edit
     try:
-        import user_py.edit_widgets
+        import user_py.edit
     except ImportError:
         pass
     if root:

@@ -5,7 +5,8 @@ from inspect import getmembers
 import urwid as ur
 import musicpd
 import time
-from table_util import balance_columns
+
+from util.table import balance_columns
 
 def format_track(dictlike):
     return {

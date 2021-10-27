@@ -9,10 +9,10 @@ from pprint import pformat
 
 from rdflib.namespace import RDF, RDFS, OWL, XSD
 
-from log_util import LogFormatter
-from rdf_util.b3 import file_hash, hashlist_hash
-from rdf_util.pl import RPQ, _utf8, xsd_type, entries_to_dir, nometa_file_node
-from rdf_util.namespaces import B3, XCAT
+from util.log import LogFormatter
+from util.rdf.b3 import file_hash, hashlist_hash
+from util.rdf.pl import RPQ, _utf8, xsd_type, entries_to_dir, nometa_file_node
+from util.rdf.namespaces import B3, XCAT
 
 def rec_file_hash(path):
     # path: hash (?)
