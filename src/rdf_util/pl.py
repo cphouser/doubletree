@@ -273,7 +273,7 @@ class RPQuery:
     def __str__(self):
         parent = f"WITH {self.parent}" if self.parent else ""
         string = '\n\t'.join([f'RPQuery:\n\t{parent}',
-                              f'SELECT {self.child} AS "{self.q_as}"',
+                              f'SELECT {self.child} AS {self.q_as}',
                               f'FROM {self.q_from} '])
         if self.q_by:
             string += f'BY: {self.q_by}'
@@ -424,13 +424,19 @@ class VarList:
             self.print_str = args[0].print_str
             self.var_list = args[0].var_list
             return
+        print_str = None
         for arg in args:
             if isinstance(arg, list):
                 var_list = arg
-            elif isinstance(arg, str):
+            elif isinstance(arg, str) and not print_str:
+                print_str = arg
+            elif callable(arg) and not print_str:
                 print_str = arg
         if not print_str:
             self.print_str = "{" + "} | {" * (len(var_list) - 1) + "}"
+            self.var_list = var_list
+        elif callable(print_str):
+            self.print_str = print_str
             self.var_list = var_list
         elif not var_list:
             self._start = 0
@@ -476,11 +482,15 @@ class VarList:
         for key, val in val_dict.items():
             if val is None:
                 val_dict[key] = "."
+        if callable(self.print_str):
+            return QueryResult(self.print_str(val_dict), val_dict)
         return QueryResult(self.print_str.format(*val_dict.values()), val_dict)
 
 
     def __repr__(self):
-        return self.print_str.format(*self.var_list)
+        if callable(self.print_str):
+            return f"<function on {self.var_list}>"
+        return f'"{self.print_str.format(*self.var_list)}"'
 
 
 @total_ordering

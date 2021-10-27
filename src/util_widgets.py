@@ -57,11 +57,12 @@ class TableList(ur.ListBox):
         super().__init__(ur.SimpleFocusListWalker([self.header]))
 
 
-    def render(self, size, focus=False ):
+    def render(self, size, focus=False):
         if not self.balanced:
             cols, _ = size
             self.balance(cols)
         return super().render(size, focus)
+
 
     def add_row(self, key, contents):
         self.body.append(TableRow(key, contents))

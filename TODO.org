@@ -16,9 +16,9 @@ last two remnants of the old query api, can clean up pl.py immensely after
 *** songs per artist that don't have a release by that artist
 *** listen history:
 date hierarchy reverse sorted, days have time-sorted listens
-*** file hierarchy
+*** DONE file hierarchy
 ** query api
-*** specify a python function as the view of a query
+*** DONE specify a python function as the view of a query
 *** STRT document
 *** DONE syntax for typechecking parent and children of a query
 - could use this to get rid of the 'root' in tree views
@@ -28,6 +28,7 @@ instantiate query structure without prolog instance.
 - should we just make pl instance optional in RPQ constructor
   - probably not, bunch of methods would have to be turned off
 - subclass RPQ and RPQuery to init without pl instance?
+** assert context manager (like a transaction interface :D)
 * TUI
 ** header
 *** DONE active instance:typeclass
@@ -101,9 +102,9 @@ are urwid windows pickleable?
 *** STRT list by file metadata
 *** bulk import albums
 *** STRT search for rdf entries that match metadata
-*** STRT correct tracklists esp with missing entries
+*** DONE correct tracklists esp with missing entries
 **** DONE reclassify files as audiofiles using audiofiles from release that are already in the store as recordings
 **** DONE rearrange tracks if necessary
-**** TODO delete files from window before adding as tracklist
+**** DONE delete files from window before adding as tracklist
 
 ** DONE fix mpd_player ugly wrapping of column contents

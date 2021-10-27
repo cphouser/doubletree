@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 
+import os
+
 import mpd_util
 from rdflib.namespace import RDF, RDFS, OWL, XSD
 from rdf_util.namespaces import XCAT
-from rdf_util.pl import ParentVar, ChildVar, ProtoQuery
+from rdf_util.pl import ParentVar, ChildVar, ProtoQuery, VarList
 
 printed_resource = ProtoQuery('Res',
                               'xcat_print(Resource, Class, String), '
@@ -65,6 +67,21 @@ tree_views = {
                    ParentVar('Release'),
                    f"xcat_print(Track, TLabel)",
                    q_by=False),
+    ], 'files': [
+        ProtoQuery(ChildVar('Entry', rdf_type=False),
+                   "rdfs_individual_of(Entry, InstanceClass), "
+                   f"rdf(Entry, '{XCAT.path}', Path^^'{XSD.string}'), "
+                   f"\+ rdf(_, '{XCAT.dirEntry}', Entry)",
+                   VarList(lambda x: os.path.basename(x["Path"]),
+                           ["Path"]),
+                   ParentVar('InstanceClass', resource=XCAT.DirEntry)),
+        ProtoQuery(ChildVar('ChildEntry', rdf_type=False),
+                   f"rdf(ParentEntry, '{XCAT.dirEntry}', ChildEntry), "
+                   f"rdf(ChildEntry, '{XCAT.path}', Path^^'{XSD.string}') ",
+                   VarList(lambda x: os.path.basename(x["Path"]),
+                           ["Path"]),
+                   ParentVar('ParentEntry', resource=XCAT.DirEntry),
+                   recursive=True)
     ], 'dates': [
         ProtoQuery(ChildVar('LDT_Year', rdf_type=False),
                    'rdfs_individual_of(DateTime, InstanceClass), '

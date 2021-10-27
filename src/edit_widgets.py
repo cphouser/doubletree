@@ -109,7 +109,6 @@ class MergeTerms(EditWindow, ur.WidgetWrap):
     def __init__(self, rpq, update_resource):
         self.rpq = rpq
         self.name_query = self.rpq.query(printed_resource)
-        #self.name_query.q_as = "{Class}: {String} <{Res}>"
         self.instances = self.rpq.query(class_instances)
         self.current_resource = ur.Text("...")
         self.current_resource_key = None
@@ -150,6 +149,7 @@ class MergeTerms(EditWindow, ur.WidgetWrap):
             self.load_instance(self.current_resource_key)
         elif (res := super().keypress(size, key)):
             return res
+
 
     def merge(self):
         self.rpq.rassert(f"xcat_merge_into('{self.current_resource_key}', "
@@ -371,6 +371,12 @@ class FindTracklist(EditWindow, ur.WidgetWrap):
                 if key == 't':
                     self.add_tracklist()
                     return
+                if key == 'd':
+                    self.remove_track(self._w.index(row))
+                    return
+                if key == 'D':
+                    self.remove_tracks(self._w.index(row))
+                    return
         if (res := super().keypress(size, key)):
             return res
 
@@ -404,6 +410,16 @@ class FindTracklist(EditWindow, ur.WidgetWrap):
         res = self.rpq.TrackList(self.parent, tracklist)
         log.debug(res)
 
+
+    def remove_track(self, idx):
+        self._w.body.pop(idx)
+        self._w.balanced = False
+
+
+    def remove_tracks(self, idx):
+        self._w.body = self._w.body[:idx]
+        self._w.balanced = False
+        self._w.set_focus(idx-1)
 
     @staticmethod
     def stringint(string):
@@ -448,3 +464,7 @@ class FindTracklist(EditWindow, ur.WidgetWrap):
                 self._w.add_row(path, widget_list)
 
         self._w.sort_by("#")
+        self._w.sort_by("Codec")
+
+
+#
