@@ -12,11 +12,57 @@
     xmlns:xcat="&xcat;"
     xmlns:xsd="&xsd;"
 >
-<rdf:Property rdf:about="&xcat;minute"
-    rdfs:label="minute">
+<rdf:Property rdf:about="&xcat;year"
+    rdfs:label="year">
+  <rdfs:domain rdf:resource="&xcat;LDateTime"/>
+  <rdfs:range rdf:resource="&xsd;gYear"/>
+</rdf:Property>
+
+<rdf:Property rdf:about="&xcat;hour"
+    rdfs:label="hour">
+  <rdfs:domain rdf:resource="&xcat;LDateTime"/>
+  <rdfs:range rdf:resource="&xsd;nonPositiveInteger"/>
+</rdf:Property>
+
+<rdf:Property rdf:about="&xcat;published_during"
+    rdfs:label="published_during">
+  <rdfs:domain rdf:resource="&xcat;Work"/>
+  <rdfs:range rdf:resource="&xcat;LDateTime"/>
+</rdf:Property>
+
+<rdf:Property rdf:about="&xcat;accessed_during"
+    rdfs:label="accessed_during">
+  <rdfs:domain rdf:resource="&xcat;File"/>
+  <rdfs:range rdf:resource="&xcat;LDateTime"/>
+</rdf:Property>
+
+<rdf:Property rdf:about="&xcat;tracklist"
+    rdfs:label="tracklist">
+  <rdfs:domain rdf:resource="&xcat;Release"/>
+  <rdfs:range rdf:resource="&xcat;TrackList"/>
+</rdf:Property>
+
+<rdf:Property rdf:about="&xcat;second"
+    rdfs:label="second">
   <rdfs:domain rdf:resource="&xcat;LDateTime"/>
   <rdfs:range rdf:resource="&xsd;nonNegativeInteger"/>
 </rdf:Property>
+
+<rdfs:Class rdf:about="&xcat;Artist"
+    rdfs:label="Artist">
+  <rdfs:subClassOf rdf:resource="&xcat;Agent"/>
+</rdfs:Class>
+
+<rdf:Property rdf:about="&xcat;concerns"
+    rdfs:label="concerns">
+  <rdfs:domain rdf:resource="&rdfs;Resource"/>
+  <rdfs:range rdf:resource="&xcat;Topic"/>
+</rdf:Property>
+
+<rdfs:Class rdf:about="&xcat;TrackList"
+    rdfs:label="TrackList">
+  <rdfs:subClassOf rdf:resource="&rdf;Seq"/>
+</rdfs:Class>
 
 <rdf:Property rdf:about="&xcat;made"
     rdfs:label="made">
@@ -24,9 +70,132 @@
   <rdfs:range rdf:resource="&xcat;Work"/>
 </rdf:Property>
 
-<rdfs:Class rdf:about="&xcat;Directory"
-    rdfs:label="Directory">
+<rdf:Property rdf:about="&xcat;day"
+    rdfs:label="day">
+  <rdfs:domain rdf:resource="&xcat;LDateTime"/>
+  <rdfs:range rdf:resource="&xsd;gDay"/>
+</rdf:Property>
+
+<rdfs:Class rdf:about="&xcat;Release"
+    rdfs:label="Release">
+  <rdfs:subClassOf rdf:resource="&xcat;Work"/>
+</rdfs:Class>
+
+<rdfs:Class rdf:about="&xcat;Project"
+    rdfs:label="Project">
+  <rdfs:subClassOf rdf:resource="&xcat;Work"/>
+</rdfs:Class>
+
+<rdfs:Class rdf:about="&xcat;Idea"
+    rdfs:label="Idea">
+  <rdfs:subClassOf rdf:resource="&rdfs;Resource"/>
+</rdfs:Class>
+
+<rdfs:Class rdf:about="&xcat;Named"
+    rdfs:label="Named">
+  <rdfs:subClassOf rdf:resource="&rdfs;Resource"/>
+</rdfs:Class>
+
+<rdfs:Class rdf:about="&xcat;File"
+    rdfs:label="File">
   <rdfs:subClassOf rdf:resource="&xcat;DirEntry"/>
+</rdfs:Class>
+
+<rdf:Property rdf:about="&xcat;microsecond"
+    rdfs:label="microsecond">
+  <rdfs:domain rdf:resource="&xcat;LDateTime"/>
+  <rdfs:range rdf:resource="&xsd;nonNegativeInteger"/>
+</rdf:Property>
+
+<rdf:Property rdf:about="&xcat;manifests"
+    rdfs:label="manifests">
+  <rdfs:domain rdf:resource="&xcat;Work"/>
+  <rdfs:range rdf:resource="&xcat;Idea"/>
+</rdf:Property>
+
+<rdfs:Class rdf:about="&xcat;Question"
+    rdfs:label="Question">
+  <rdfs:subClassOf rdf:resource="&xcat;Idea"/>
+</rdfs:Class>
+
+<rdf:Property rdf:about="&xcat;name"
+    rdfs:label="name">
+  <rdfs:domain rdf:resource="&xcat;Named"/>
+  <rdfs:range rdf:resource="&xsd;string"/>
+</rdf:Property>
+
+<rdfs:Class rdf:about="&xcat;WebVideo"
+    rdfs:label="Web Video">
+  <rdfs:subClassOf rdf:resource="&xcat;WebContent"/>
+</rdfs:Class>
+
+<rdf:Property rdf:about="&xcat;released_on"
+    rdfs:label="released_on">
+  <rdfs:domain rdf:resource="&xcat;Recording"/>
+  <rdfs:range rdf:resource="&xcat;Release"/>
+</rdf:Property>
+
+<rdfs:Class rdf:about="&xcat;Task"
+    rdfs:label="Task">
+  <rdfs:subClassOf rdf:resource="&xcat;Project"/>
+</rdfs:Class>
+
+<rdf:Property rdf:about="&xcat;genre_style"
+    rdfs:label="genre_style">
+  <rdfs:domain rdf:resource="&xcat;Genre"/>
+  <rdfs:range rdf:resource="&xcat;Style"/>
+</rdf:Property>
+
+<rdfs:Class rdf:about="&xcat;LDateTime"
+    rdfs:label="LDateTime">
+  <rdfs:subClassOf rdf:resource="&rdfs;Resource"/>
+</rdfs:Class>
+
+<rdf:Property rdf:about="&xcat;genre"
+    rdfs:label="genre">
+  <rdfs:domain rdf:resource="&xcat;Work"/>
+  <rdfs:range rdf:resource="&xcat;Genre"/>
+</rdf:Property>
+
+<rdf:Property rdf:about="&xcat;publisher"
+    rdfs:label="publisher">
+  <rdfs:domain rdf:resource="&xcat;Release"/>
+  <rdfs:range rdf:resource="&xcat;MusicLabel"/>
+</rdf:Property>
+
+<rdf:Property rdf:about="&xcat;month"
+    rdfs:label="month">
+  <rdfs:domain rdf:resource="&xcat;LDateTime"/>
+  <rdfs:range rdf:resource="&xsd;gMonth"/>
+</rdf:Property>
+
+<rdf:Property rdf:about="&xcat;provokes"
+    rdfs:label="provokes">
+  <rdfs:domain rdf:resource="&rdfs;Resource"/>
+  <rdfs:range rdf:resource="&xcat;Idea"/>
+</rdf:Property>
+
+<rdf:Property rdf:about="&xcat;parent_genre"
+    rdfs:label="parent_genre">
+  <rdfs:domain rdf:resource="&xcat;Style"/>
+  <rdfs:range rdf:resource="&xcat;Genre"/>
+</rdf:Property>
+
+<rdf:Property rdf:about="&xcat;links_to"
+    rdfs:label="links_to">
+  <rdfs:domain rdf:resource="&rdfs;Resource"/>
+  <rdfs:range rdf:resource="&rdfs;Resource"/>
+</rdf:Property>
+
+<rdf:Property rdf:about="&xcat;file"
+    rdfs:label="file">
+  <rdfs:domain rdf:resource="&rdfs;Resource"/>
+  <rdfs:range rdf:resource="&xcat;File"/>
+</rdf:Property>
+
+<rdfs:Class rdf:about="&xcat;MusicLabel"
+    rdfs:label="MusicLabel">
+  <rdfs:subClassOf rdf:resource="&xcat;Agent"/>
 </rdfs:Class>
 
 <rdfs:Class rdf:about="&xcat;AudioFile"
@@ -34,15 +203,26 @@
   <rdfs:subClassOf rdf:resource="&xcat;File"/>
 </rdfs:Class>
 
-<rdfs:Class rdf:about="&xcat;Style"
-    rdfs:label="Style">
+<rdfs:Class rdf:about="&xcat;Genre"
+    rdfs:label="Genre">
   <rdfs:subClassOf rdf:resource="&xcat;Classification"/>
 </rdfs:Class>
 
-<rdf:Property rdf:about="&xcat;hour"
-    rdfs:label="hour">
-  <rdfs:domain rdf:resource="&xcat;LDateTime"/>
-  <rdfs:range rdf:resource="&xsd;nonPositiveInteger"/>
+<rdfs:Class rdf:about="&xcat;Classification"
+    rdfs:label="Classification">
+  <rdfs:subClassOf rdf:resource="&xcat;Named"/>
+</rdfs:Class>
+
+<rdf:Property rdf:about="&xcat;added_during"
+    rdfs:label="added_during">
+  <rdfs:domain rdf:resource="&xcat;File"/>
+  <rdfs:range rdf:resource="&xcat;LDateTime"/>
+</rdf:Property>
+
+<rdf:Property rdf:about="&xcat;path"
+    rdfs:label="path">
+  <rdfs:domain rdf:resource="&xcat;DirEntry"/>
+  <rdfs:range rdf:resource="&xsd;string"/>
 </rdf:Property>
 
 <rdf:Property rdf:about="&xcat;maker"
@@ -51,14 +231,84 @@
   <rdfs:range rdf:resource="&xcat;Agent"/>
 </rdf:Property>
 
-<rdfs:Class rdf:about="&xcat;LDateTime"
-    rdfs:label="LDateTime">
+<rdfs:Class rdf:about="&xcat;Topic"
+    rdfs:label="Topic">
+  <rdfs:subClassOf rdf:resource="&xcat;Classification"/>
+</rdfs:Class>
+
+<rdf:Property rdf:about="&xcat;minute"
+    rdfs:label="minute">
+  <rdfs:domain rdf:resource="&xcat;LDateTime"/>
+  <rdfs:range rdf:resource="&xsd;nonNegativeInteger"/>
+</rdf:Property>
+
+<rdfs:Class rdf:about="&xcat;DirEntry"
+    rdfs:label="DirEntry">
   <rdfs:subClassOf rdf:resource="&rdfs;Resource"/>
 </rdfs:Class>
 
-<rdf:Property rdf:about="&xcat;path"
-    rdfs:label="path">
+<rdfs:Class rdf:about="&xcat;Agent"
+    rdfs:label="Agent">
+  <rdfs:subClassOf rdf:resource="&xcat;Named"/>
+</rdfs:Class>
+
+<rdfs:Class rdf:about="&xcat;Directory"
+    rdfs:label="Directory">
+  <rdfs:subClassOf rdf:resource="&xcat;DirEntry"/>
+</rdfs:Class>
+
+<rdf:Property rdf:about="&xcat;encoding"
+    rdfs:label="encoding">
+  <rdfs:domain rdf:resource="&xcat;AudioFile"/>
+  <rdfs:range rdf:resource="&xsd;string"/>
+</rdf:Property>
+
+<rdfs:Class rdf:about="&xcat;WebTool"
+    rdfs:label="Web Tool">
+  <rdfs:subClassOf rdf:resource="&xcat;WebContent"/>
+</rdfs:Class>
+
+<rdfs:Class rdf:about="&xcat;Style"
+    rdfs:label="Style">
+  <rdfs:subClassOf rdf:resource="&xcat;Classification"/>
+</rdfs:Class>
+
+<rdf:Property rdf:about="&xcat;dirEntry"
+    rdfs:label="dirEntry">
+  <rdfs:domain rdf:resource="&xcat;Directory"/>
+  <rdfs:range rdf:resource="&xcat;DirEntry"/>
+</rdf:Property>
+
+<rdfs:Class rdf:about="&xcat;WebPage"
+    rdfs:label="Web Page">
+  <rdfs:subClassOf rdf:resource="&xcat;WebContent"/>
+</rdfs:Class>
+
+<rdf:Property rdf:about="&xcat;style"
+    rdfs:label="style">
+  <rdfs:domain rdf:resource="&xcat;Work"/>
+  <rdfs:range rdf:resource="&xcat;Style"/>
+</rdf:Property>
+
+<rdfs:Class rdf:about="&xcat;Recording"
+    rdfs:label="Recording">
+  <rdfs:subClassOf rdf:resource="&xcat;Work"/>
+</rdfs:Class>
+
+<rdf:Property rdf:about="&xcat;hash"
+    rdfs:label="hash">
   <rdfs:domain rdf:resource="&xcat;DirEntry"/>
+  <rdfs:range rdf:resource="&xsd;string"/>
+</rdf:Property>
+
+<rdfs:Class rdf:about="&xcat;WebContent"
+    rdfs:label="WebContent">
+  <rdfs:subClassOf rdf:resource="&xcat;Work"/>
+</rdfs:Class>
+
+<rdf:Property rdf:about="&xcat;catalog_num"
+    rdfs:label="catalog_num">
+  <rdfs:domain rdf:resource="&xcat;Release"/>
   <rdfs:range rdf:resource="&xsd;string"/>
 </rdf:Property>
 
@@ -68,130 +318,20 @@
   <rdfs:range rdf:resource="&xcat;Recording"/>
 </rdf:Property>
 
-<rdf:Property rdf:about="&xcat;publisher"
-    rdfs:label="publisher">
-  <rdfs:domain rdf:resource="&xcat;Release"/>
-  <rdfs:range rdf:resource="&xcat;MusicLabel"/>
-</rdf:Property>
-
-<rdfs:Class rdf:about="&xcat;DirEntry"
-    rdfs:label="DirEntry">
-  <rdfs:subClassOf rdf:resource="&rdfs;Resource"/>
+<rdfs:Class rdf:about="&xcat;Feature"
+    rdfs:label="Feature">
+  <rdfs:subClassOf rdf:resource="&xcat;Idea"/>
 </rdfs:Class>
-
-<rdf:Property rdf:about="&xcat;catalog_num"
-    rdfs:label="catalog_num">
-  <rdfs:domain rdf:resource="&xcat;Release"/>
-  <rdfs:range rdf:resource="&xsd;string"/>
-</rdf:Property>
-
-<rdfs:Class rdf:about="&xcat;Artist"
-    rdfs:label="Artist">
-  <rdfs:subClassOf rdf:resource="&xcat;Agent"/>
-</rdfs:Class>
-
-<rdf:Property rdf:about="&xcat;month"
-    rdfs:label="month">
-  <rdfs:domain rdf:resource="&xcat;LDateTime"/>
-  <rdfs:range rdf:resource="&xsd;gMonth"/>
-</rdf:Property>
-
-<rdf:Property rdf:about="&xcat;tracklist"
-    rdfs:label="tracklist">
-  <rdfs:domain rdf:resource="&xcat;Release"/>
-  <rdfs:range rdf:resource="&xcat;TrackList"/>
-</rdf:Property>
-
-<rdfs:Class rdf:about="&xcat;Genre"
-    rdfs:label="Genre">
-  <rdfs:subClassOf rdf:resource="&xcat;Classification"/>
-</rdfs:Class>
-
-<rdf:Property rdf:about="&xcat;microsecond"
-    rdfs:label="microsecond">
-  <rdfs:domain rdf:resource="&xcat;LDateTime"/>
-  <rdfs:range rdf:resource="&xsd;nonNegativeInteger"/>
-</rdf:Property>
-
-<rdf:Property rdf:about="&xcat;genre_style"
-    rdfs:label="genre_style">
-  <rdfs:domain rdf:resource="&xcat;Genre"/>
-  <rdfs:range rdf:resource="&xcat;Style"/>
-</rdf:Property>
-
-<rdfs:Class rdf:about="&xcat;File"
-    rdfs:label="File">
-  <rdfs:subClassOf rdf:resource="&xcat;DirEntry"/>
-</rdfs:Class>
-
-<rdf:Property rdf:about="&xcat;released_on"
-    rdfs:label="released_on">
-  <rdfs:domain rdf:resource="&xcat;Recording"/>
-  <rdfs:range rdf:resource="&xcat;Release"/>
-</rdf:Property>
-
-<rdfs:Class rdf:about="&xcat;Named"
-    rdfs:label="Named">
-  <rdfs:subClassOf rdf:resource="&rdfs;Resource"/>
-</rdfs:Class>
-
-<rdf:Property rdf:about="&xcat;published_during"
-    rdfs:label="published_during">
-  <rdfs:domain rdf:resource="&xcat;Release"/>
-  <rdfs:range rdf:resource="&xcat;LDateTime"/>
-</rdf:Property>
-
-<rdf:Property rdf:about="&xcat;day"
-    rdfs:label="day">
-  <rdfs:domain rdf:resource="&xcat;LDateTime"/>
-  <rdfs:range rdf:resource="&xsd;gDay"/>
-</rdf:Property>
-
-<rdf:Property rdf:about="&xcat;file"
-    rdfs:label="file">
-  <rdfs:domain rdf:resource="&xcat;Recording"/>
-  <rdfs:range rdf:resource="&xcat;AudioFile"/>
-</rdf:Property>
-
-<rdf:Property rdf:about="&xcat;added_during"
-    rdfs:label="added_during">
-  <rdfs:domain rdf:resource="&xcat;File"/>
-  <rdfs:range rdf:resource="&xcat;LDateTime"/>
-</rdf:Property>
 
 <rdfs:Class rdf:about="&xcat;Work"
     rdfs:label="Work">
   <rdfs:subClassOf rdf:resource="&rdfs;Resource"/>
 </rdfs:Class>
 
-<rdfs:Class rdf:about="&xcat;Classification"
-    rdfs:label="Classification">
-  <rdfs:subClassOf rdf:resource="&xcat;Named"/>
+<rdfs:Class rdf:about="&xcat;Capability"
+    rdfs:label="Capability">
+  <rdfs:subClassOf rdf:resource="&xcat;Idea"/>
 </rdfs:Class>
-
-<rdf:Property rdf:about="&xcat;genre"
-    rdfs:label="genre">
-  <rdfs:domain rdf:resource="&xcat;Work"/>
-  <rdfs:range rdf:resource="&xcat;Genre"/>
-</rdf:Property>
-
-<rdf:Property rdf:about="&xcat;accessed_during"
-    rdfs:label="accessed_during">
-  <rdfs:domain rdf:resource="&xcat;File"/>
-  <rdfs:range rdf:resource="&xcat;LDateTime"/>
-</rdf:Property>
-
-<rdf:Property rdf:about="&xcat;parent_genre"
-    rdfs:label="parent_genre">
-  <rdfs:domain rdf:resource="&xcat;Style"/>
-  <rdfs:range rdf:resource="&xcat;Genre"/>
-</rdf:Property>
-
-<rdf:Property rdf:about="&xcat;title"
-    rdfs:label="title">
-  <rdfs:domain rdf:resource="&xcat;Work"/>
-  <rdfs:range rdf:resource="&xsd;string"/>
-</rdf:Property>
 
 <rdf:Property rdf:about="&xcat;published"
     rdfs:label="published">
@@ -199,71 +339,10 @@
   <rdfs:range rdf:resource="&xcat;Release"/>
 </rdf:Property>
 
-<rdf:Property rdf:about="&xcat;encoding"
-    rdfs:label="encoding">
-  <rdfs:domain rdf:resource="&xcat;AudioFile"/>
-  <rdfs:range rdf:resource="&xsd;string"/>
-</rdf:Property>
-
-<rdf:Property rdf:about="&xcat;dirEntry"
-    rdfs:label="dirEntry">
-  <rdfs:domain rdf:resource="&xcat;Directory"/>
-  <rdfs:range rdf:resource="&xcat;DirEntry"/>
-</rdf:Property>
-
-<rdf:Property rdf:about="&xcat;style"
-    rdfs:label="style">
+<rdf:Property rdf:about="&xcat;title"
+    rdfs:label="title">
   <rdfs:domain rdf:resource="&xcat;Work"/>
-  <rdfs:range rdf:resource="&xcat;Style"/>
-</rdf:Property>
-
-<rdfs:Class rdf:about="&xcat;Agent"
-    rdfs:label="Agent">
-  <rdfs:subClassOf rdf:resource="&xcat;Named"/>
-</rdfs:Class>
-
-<rdfs:Class rdf:about="&xcat;TrackList"
-    rdfs:label="TrackList">
-  <rdfs:subClassOf rdf:resource="&rdf;Seq"/>
-</rdfs:Class>
-
-<rdf:Property rdf:about="&xcat;hash"
-    rdfs:label="hash">
-  <rdfs:domain rdf:resource="&xcat;DirEntry"/>
   <rdfs:range rdf:resource="&xsd;string"/>
 </rdf:Property>
-
-<rdfs:Class rdf:about="&xcat;MusicLabel"
-    rdfs:label="MusicLabel">
-  <rdfs:subClassOf rdf:resource="&xcat;Agent"/>
-</rdfs:Class>
-
-<rdfs:Class rdf:about="&xcat;Recording"
-    rdfs:label="Recording">
-  <rdfs:subClassOf rdf:resource="&xcat;Work"/>
-</rdfs:Class>
-
-<rdf:Property rdf:about="&xcat;year"
-    rdfs:label="year">
-  <rdfs:domain rdf:resource="&xcat;LDateTime"/>
-  <rdfs:range rdf:resource="&xsd;gYear"/>
-</rdf:Property>
-
-<rdf:Property rdf:about="&xcat;name"
-    rdfs:label="name">
-  <rdfs:domain rdf:resource="&xcat;Named"/>
-  <rdfs:range rdf:resource="&xsd;string"/>
-</rdf:Property>
-
-<rdf:Property rdf:about="&xcat;second"
-    rdfs:label="second">
-  <rdfs:domain rdf:resource="&xcat;LDateTime"/>
-  <rdfs:range rdf:resource="&xsd;nonNegativeInteger"/>
-</rdf:Property>
-
-<rdfs:Class rdf:about="&xcat;Release"
-    rdfs:label="Release">
-  <rdfs:subClassOf rdf:resource="&xcat;Work"/>
-</rdfs:Class>
 
 </rdf:RDF>

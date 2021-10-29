@@ -18,6 +18,11 @@ xcat:AudioFile
     rdfs:label "AudioFile" ;
     rdfs:subClassOf xcat:File .
 
+xcat:Capability
+    a rdfs:Class ;
+    rdfs:label "Capability" ;
+    rdfs:subClassOf xcat:Idea .
+
 xcat:Classification
     a rdfs:Class ;
     rdfs:label "Classification" ;
@@ -33,6 +38,11 @@ xcat:Directory
     rdfs:label "Directory" ;
     rdfs:subClassOf xcat:DirEntry .
 
+xcat:Feature
+    a rdfs:Class ;
+    rdfs:label "Feature" ;
+    rdfs:subClassOf xcat:Idea .
+
 xcat:File
     a rdfs:Class ;
     rdfs:label "File" ;
@@ -42,6 +52,11 @@ xcat:Genre
     a rdfs:Class ;
     rdfs:label "Genre" ;
     rdfs:subClassOf xcat:Classification .
+
+xcat:Idea
+    a rdfs:Class ;
+    rdfs:label "Idea" ;
+    rdfs:subClassOf rdfs:Resource .
 
 xcat:LDateTime
     a rdfs:Class ;
@@ -58,6 +73,16 @@ xcat:Named
     rdfs:label "Named" ;
     rdfs:subClassOf rdfs:Resource .
 
+xcat:Project
+    a rdfs:Class ;
+    rdfs:label "Project" ;
+    rdfs:subClassOf xcat:Work .
+
+xcat:Question
+    a rdfs:Class ;
+    rdfs:label "Question" ;
+    rdfs:subClassOf xcat:Idea .
+
 xcat:Recording
     a rdfs:Class ;
     rdfs:label "Recording" ;
@@ -73,10 +98,40 @@ xcat:Style
     rdfs:label "Style" ;
     rdfs:subClassOf xcat:Classification .
 
+xcat:Task
+    a rdfs:Class ;
+    rdfs:label "Task" ;
+    rdfs:subClassOf xcat:Project .
+
+xcat:Topic
+    a rdfs:Class ;
+    rdfs:label "Topic" ;
+    rdfs:subClassOf xcat:Classification .
+
 xcat:TrackList
     a rdfs:Class ;
     rdfs:label "TrackList" ;
     rdfs:subClassOf rdf:Seq .
+
+xcat:WebContent
+    a rdfs:Class ;
+    rdfs:label "WebContent" ;
+    rdfs:subClassOf xcat:Work .
+
+xcat:WebPage
+    a rdfs:Class ;
+    rdfs:label "Web Page" ;
+    rdfs:subClassOf xcat:WebContent .
+
+xcat:WebTool
+    a rdfs:Class ;
+    rdfs:label "Web Tool" ;
+    rdfs:subClassOf xcat:WebContent .
+
+xcat:WebVideo
+    a rdfs:Class ;
+    rdfs:label "Web Video" ;
+    rdfs:subClassOf xcat:WebContent .
 
 xcat:Work
     a rdfs:Class ;
@@ -101,6 +156,12 @@ xcat:catalog_num
     rdfs:label "catalog_num" ;
     rdfs:range xsd:string .
 
+xcat:concerns
+    a rdf:Property ;
+    rdfs:domain rdfs:Resource ;
+    rdfs:label "concerns" ;
+    rdfs:range xcat:Topic .
+
 xcat:day
     a rdf:Property ;
     rdfs:domain xcat:LDateTime ;
@@ -121,9 +182,9 @@ xcat:encoding
 
 xcat:file
     a rdf:Property ;
-    rdfs:domain xcat:Recording ;
+    rdfs:domain rdfs:Resource ;
     rdfs:label "file" ;
-    rdfs:range xcat:AudioFile .
+    rdfs:range xcat:File .
 
 xcat:genre
     a rdf:Property ;
@@ -149,6 +210,12 @@ xcat:hour
     rdfs:label "hour" ;
     rdfs:range xsd:nonPositiveInteger .
 
+xcat:links_to
+    a rdf:Property ;
+    rdfs:domain rdfs:Resource ;
+    rdfs:label "links_to" ;
+    rdfs:range rdfs:Resource .
+
 xcat:made
     a rdf:Property ;
     rdfs:domain xcat:Agent ;
@@ -160,6 +227,12 @@ xcat:maker
     rdfs:domain xcat:Work ;
     rdfs:label "maker" ;
     rdfs:range xcat:Agent .
+
+xcat:manifests
+    a rdf:Property ;
+    rdfs:domain xcat:Work ;
+    rdfs:label "manifests" ;
+    rdfs:range xcat:Idea .
 
 xcat:microsecond
     a rdf:Property ;
@@ -197,6 +270,12 @@ xcat:path
     rdfs:label "path" ;
     rdfs:range xsd:string .
 
+xcat:provokes
+    a rdf:Property ;
+    rdfs:domain rdfs:Resource ;
+    rdfs:label "provokes" ;
+    rdfs:range xcat:Idea .
+
 xcat:published
     a rdf:Property ;
     rdfs:domain xcat:MusicLabel ;
@@ -205,7 +284,7 @@ xcat:published
 
 xcat:published_during
     a rdf:Property ;
-    rdfs:domain xcat:Release ;
+    rdfs:domain xcat:Work ;
     rdfs:label "published_during" ;
     rdfs:range xcat:LDateTime .
 

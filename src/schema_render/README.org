@@ -1,0 +1,22 @@
+#+TITLE: SCHEMA_RENDER_README
+
+Note: This is the first thing I made in this project and it's quite ugly code. keeping it around because it does a better job of presenting all the relationships in a schema than other solutions i've seen.
+** Graphviz render script
+Renders dot graphs of the schema turtle file. See =data/vocab/render.sh= for usage example. Renders subclass relationships and property domain-ranges in the same graph.
+
+** key
+- Pink Box :: Class in the schema
+- Orange Box :: Class outside the schema
+  Rendered separately for each relationship it connects with.
+  - Light Orange :: Subject or Object of a property in the schema
+  - Dark Orange :: Superclass of a class in the schema
+- Pink Arc :: Subclass relationship
+- Cyan Box/Arc :: Property Class
+  Connects to the property domain with an undirected edge, connects to the property range with an outbound arc. Signifies a continuous arc connecting domain with range (but renders better than an edge label in GraphViz)
+
+*** unused
+haven't tested these in a while, they might be broken.
+- Dark Orange Ellipse :: Metaclass Node, I think only works for OWL unions. Resources in the union connect to the node which forms the domain or range or a property
+- Light Cyan Box/Arc :: Subproperty Node, connected to its superproperty
+- Dark Cyan Box/Arc :: Datatype defined in the schema, The class that is its type connects to it
+- Magenta Edge :: An OWL restriction but probably is super misleading since I still don't understand OWL restrictions.
