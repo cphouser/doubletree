@@ -9,13 +9,13 @@ from pyswip.prolog import Prolog, PrologError
 import urwid as ur
 
 from widgets.mpd_player import MpdPlayer
-from widgets.util import ExpandingList
+from widgets.util import ExpandingList, WidgetStyle
 from widgets.edit import RelatedTerms
 from widgets.rpq import RPQ_Node, RPQ_ListElem, EditWindows
 
 from util import mpd
 from util.log import LogFormatter
-from util.palette import palette
+#from util.palette import *
 from util.rdf.namespaces import XCAT
 from util.rdf.pl import mixed_query, all_classes, RPQ, VarList
 from util.rdf.queries import (tree_views, instance_ops, class_hierarchy,
@@ -309,8 +309,10 @@ def unhandled_input(k):
 
 def doubletree(rpq):
     window = Window(rpq, update_rate=1)
-    event_loop = ur.MainLoop(window, palette, unhandled_input=unhandled_input)
+    event_loop = ur.MainLoop(window, WidgetStyle.palette,
+                             unhandled_input=unhandled_input)
     event_loop.set_alarm_in(1, window.update_dynamic)
+    event_loop.screen.set_terminal_properties(colors=256)
     event_loop.run()
 
 

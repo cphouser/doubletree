@@ -18,6 +18,11 @@ xcat:AudioFile
     rdfs:label "AudioFile" ;
     rdfs:subClassOf xcat:File .
 
+xcat:BrowserWindow
+    a rdfs:Class ;
+    rdfs:label "BrowserTabs" ;
+    rdfs:subClassOf rdf:Seq .
+
 xcat:Capability
     a rdfs:Class ;
     rdfs:label "Capability" ;
@@ -113,6 +118,11 @@ xcat:TrackList
     rdfs:label "TrackList" ;
     rdfs:subClassOf rdf:Seq .
 
+xcat:WebBrowser
+    a rdfs:Class ;
+    rdfs:label "WebBrowser" ;
+    rdfs:subClassOf rdfs:Resource .
+
 xcat:WebContent
     a rdfs:Class ;
     rdfs:label "WebContent" ;
@@ -140,13 +150,13 @@ xcat:Work
 
 xcat:accessed_during
     a rdf:Property ;
-    rdfs:domain xcat:File ;
+    rdfs:domain rdfs:Resource ;
     rdfs:label "accessed_during" ;
     rdfs:range xcat:LDateTime .
 
 xcat:added_during
     a rdf:Property ;
-    rdfs:domain xcat:File ;
+    rdfs:domain rdfs:Resource ;
     rdfs:label "added_during" ;
     rdfs:range xcat:LDateTime .
 
@@ -197,6 +207,12 @@ xcat:genre_style
     rdfs:domain xcat:Genre ;
     rdfs:label "genre_style" ;
     rdfs:range xcat:Style .
+
+xcat:has_open
+    a rdf:Property ;
+    rdfs:domain xcat:WebBrowser ;
+    rdfs:label "has_open" ;
+    rdfs:range xcat:BrowserWindow .
 
 xcat:hash
     a rdf:Property ;

@@ -1,6 +1,8 @@
 #+TITLE: SCHEMA_RENDER_README
 
 Note: This is the first thing I made in this project and it's quite ugly code. keeping it around because it does a better job of presenting all the relationships in a schema than other solutions i've seen.
+
+It uses a different requirements.txt that has (also) has a bunch of (different) cruft that isn't used any more. Its also the only remnant of the repo i clobbered with this one, originally started in april 2021.
 ** Graphviz render script
 Renders dot graphs of the schema turtle file. See =data/vocab/render.sh= for usage example. Renders subclass relationships and property domain-ranges in the same graph.
 

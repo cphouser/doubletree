@@ -120,7 +120,7 @@ class CurrentSong(ur.ProgressBar):
 
 
     def load_bar(self):
-        super().__init__("body", "focus", current=self.current_sec,
+        super().__init__("bar", "bar_done", current=self.current_sec,
                          done=self.total_sec)
 
 

@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
+import logging as log
+
 import urwid as ur
+
+from widgets.util import WidgetStyle
 
 class RPQ_ListElem(ur.Columns):
     def __init__(self, key, query_result, reverse=False, selectable=True):
@@ -15,30 +19,14 @@ class RPQ_ListElem(ur.Columns):
 
 
 class RPQ_NodeText(ur.TreeWidget):
-    unexpanded_icon = ur.wimp.SelectableIcon('\u25B6', 0)
-    expanded_icon = ur.wimp.SelectableIcon('\u25B7', 0)
-    leaf_icon = ur.wimp.SelectableIcon('-', 0)
+    unexpanded_icon = ('treefold', '\u25B6 ')
+    expanded_icon = ('treeopen', '\u25B7 ')
+    leaf_icon = ('treeleaf', '- ')
 
     def __init__(self, node):
         super().__init__(node)
         self.expanded = False
         self.update_expanded_icon()
-
-
-    def selectable(self):
-        return True
-
-
-    def get_display_text(self):
-        return str(self.get_node().get_value())
-
-
-    def get_indented_widget(self):
-        inner = self.get_inner_widget()
-        widget = ur.Columns([('fixed', 1, self.get_icon()), inner],
-                            dividechars=1)
-        indent_cols = self.get_indent_cols()
-        return ur.Padding(widget, width=('relative', 100), left=indent_cols)
 
 
     def get_icon(self):
@@ -50,10 +38,22 @@ class RPQ_NodeText(ur.TreeWidget):
             return self.unexpanded_icon
 
 
+    def selectable(self):
+        return True
+
+
+    def get_display_text(self):
+        return str(self.get_node().get_value())
+
+
+    def get_indented_widget(self):
+        return WidgetStyle(self)
+
+
     def update_expanded_icon(self):
-        """Update display widget text for parent widgets"""
-        # icon is first element in columns indented widget
-        self._w.base_widget.widget_list[0] = self.get_icon()
+        log.debug(self._w.base_widget)
+        self._w.base_widget.set_text([self.get_icon(), self.get_display_text()])
+        #self._w.base_widget.widget_list[0] = self.get_icon()
 
 
     def keypress(self, size, key):

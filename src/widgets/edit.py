@@ -176,7 +176,7 @@ release_tracks = ProtoQuery(
             "xcat_print(Release, RLabel)",
     q_by=False, null=True)
 
-class PropertyEdit(ur.Columns):
+class RecordingPropertyEdit(ur.Columns):
     """Used by RecordingImport for editing property fields for an import."""
     def __init__(self, prop, prop_lbl, val, val_type, alt_val=None):
         self.short = ShortURI()
@@ -282,8 +282,8 @@ class RecordingImport(ur.Columns):
                 alt_val = ""
             if res["PredURI"] == str(XCAT.recording):
                 sbj = self.file_resource
-            prop = PropertyEdit(res["PredURI"], res["Predicate"],
-                                sbj, res.type, alt_val)
+            prop = RecordingPropertyEdit(res["PredURI"], res["Predicate"],
+                                         sbj, res.type, alt_val)
             fields.append(prop)
             self.new_rec['rec_is_prop'][res["PredURI"]] = (prop, res.type)
 
@@ -310,12 +310,13 @@ class RecordingImport(ur.Columns):
             if alt_val:
                 obj = alt_val
                 alt_val = ""
-            prop = PropertyEdit(res["PredURI"], res["Predicate"],
-                                obj, res.type, alt_val)
+            prop = RecordingPropertyEdit(res["PredURI"], res["Predicate"],
+                                         obj, res.type, alt_val)
             fields.append(prop)
             self.new_rec['rec_props'][res["PredURI"]] = (prop, res.type)
         if (encoding := self.path_tagdata.get("encoding")):
-            prop = PropertyEdit(XCAT.encoding, "encoding", encoding, XSD.string)
+            prop = RecordingPropertyEdit(XCAT.encoding, "encoding", encoding,
+                                         XSD.string)
             fields.append(prop)
             self.new_rec["encoding"] = (prop, XSD.string)
         return ur.ListBox(ur.SimpleFocusListWalker(fields))
@@ -464,6 +465,7 @@ class FindTracklist(EditWindow, ur.WidgetWrap):
 
         self._w.sort_by("#")
         self._w.sort_by("Codec")
+
 
 
 #

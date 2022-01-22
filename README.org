@@ -111,6 +111,11 @@ If music isn't centralized in a single directory, you can repeat this command wi
   replace =start= with =enable= to make it run on startup (good idea)
 *** run the browser
 =./doubletree.py=
+** how to
+*** change the schema
+doubletree interface isn't quite mature enough to be a schema editor, probably will be a while before it is mature enough to be a *good* schema editor. currently I use [[https://github.com/JanWielemaker/triple20][triple20]], an RDF-editing GUI that is i think entirely programmed in Prolog and is at least 18 years old as of 2021 (converted to SVN from CVS in 2003). It is quirky but was the most usable tool that still seemed to run ok in 2021.
+*** render the schema in GraphViz
+see [[file:src/schema_render/README.org][Schema Renderer README]] for a brief description of the rendering tool; its clunky.
 ** misc utilities
 currently all in the =src= project dir
 *** =update_paths.py=

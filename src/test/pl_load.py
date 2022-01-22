@@ -2,7 +2,7 @@
 
 from pyswip.prolog import Prolog
 from rdflib import Graph
-from rdf_util.namespaces import XCAT
+from util.rdf.namespaces import XCAT
 from rdflib.namespace import RDF, RDFS, OWL, XSD
 
 prolog = Prolog()
