@@ -106,16 +106,16 @@ class TableList(ur.ListBox):
         """Return the row, column currently selected."""
         if self.focus:
             if self.focus.key == "header":
-                return (None, self.focus.focus.key)
+                return (None, self.focus.focus._original_widget.key)
             else:
-                return (self.focus.key, self.focus.focus.key)
+                return (self.focus.key, self.focus.focus._original_widget.key)
         return (None, None)
 
 
     def selected_col(self):
         """return header key of currently selected column"""
         if self.focus:
-            focus_idx = self.focus.find(self.focus.focus.key)
+            focus_idx = self.focus.find(self.focus.focus._original_widget.key)
             return self.header[focus_idx].key
 
 
@@ -146,7 +146,7 @@ class TableList(ur.ListBox):
         rows = []
         col_idx = self.body[0].find(column)
         for row in self.body[1:]:
-            col_val = row[col_idx].sort
+            col_val = row[col_idx]._original_widget.sort
             rows.append((col_val, row))
         self.body = ur.SimpleFocusListWalker(
                 [self.body[0]]
@@ -202,12 +202,14 @@ class ListSummary(SelectableText):
 class TableRow(ur.Columns):
     def __init__(self, key, widget_list):
         self.key = key
+        widget_list = [WidgetStyle(widget) for widget in widget_list]
         super().__init__(widget_list)
 
 
     def find(self, key):
         for idx, (item, _) in enumerate(self.contents):
-            if item.key == key:
+            log.debug(item._original_widget)
+            if item._original_widget.key == key:
                 return idx
 
 
@@ -254,6 +256,8 @@ class WidgetStyle(ur.AttrMap):
         ('treeleaf',        'yellow' , 'black', '',             CYAN1, BLACK),
         ('tree_text',       'yellow' , 'black', '',             LGRAY, BLACK),
         ('tree_select',     'yellow' , 'black', '',             WHITE, BLACK),
+        ('griditem',        'yellow' , 'black', '',             LGRAY, BLACK),
+        ('griditem_select', 'yellow' , 'black', '',             LPINK, BLACK),
     ]
 
     def __init__(self, widget):
@@ -261,9 +265,12 @@ class WidgetStyle(ur.AttrMap):
             w, *attrs = self.tree_style(widget)
         elif isinstance(widget, ListSummary):
             w, *attrs = self.list_summary_style(widget)
+        elif isinstance(widget, TableItem):
+            w, *attrs = self.table_item_style(widget)
         else:
+            log.debug(type(widget))
             w = ur.Text("TODO")
-            attrs = []
+            attrs = ["listicon"]
 
         super().__init__(w, *attrs)
 
@@ -278,6 +285,9 @@ class WidgetStyle(ur.AttrMap):
 
     def list_summary_style(self, widget):
         return widget, "listitem_select"
+
+    def table_item_style(self, widget):
+        return widget, "griditem", "griditem_select"
 
     def set_text(self, text):
         # FIXME maybe make another mixin factory for delegating other

@@ -2,9 +2,9 @@
 
 import musicpd
 
+import logging as log
 
 def add_to_list(*filepaths, **filepath_dict):
-    filepaths = list(filepaths)
     if (path := filepath_dict.get('Path')):
         filepaths += [path]
     client = musicpd.MPDClient()

@@ -131,7 +131,6 @@ class RPQuery:
         self._results = None
         self._children = {}
 
-
     def copy(self, par_ref=None):
         parent = self.parent.copy()
         if par_ref:
@@ -140,7 +139,6 @@ class RPQuery:
                        self.q_where, self.q_by, self.unique, self.recursive,
                        self.desc_q, self.null)
         return copy
-
 
     def _query(self):
         if self._results is not None:
@@ -226,37 +224,29 @@ class RPQuery:
 
         return self._results
 
-
     def items(self):
         return self._query().items()
-
 
     def values(self):
         return self._query().values()
 
-
     def keys(self):
         return self._query().keys()
-
 
     def __iter__(self):
         yield from self._query().keys()
 
-
     def __getitem__(self, key):
         return self._query()[key]
 
-
     def __len__(self):
         return len(self._query())
-
 
     def first_item(self):
         if len(self):
             return self[self.keys()[0]]
         else:
             return {}
-
 
     def child_query(self, child):
         #log.debug(self._children)
@@ -274,7 +264,6 @@ class RPQuery:
         else:
             self._children[child] = {}
         return self._children[child]
-
 
     def __str__(self):
         parent = f"WITH {self.parent}" if self.parent else ""
@@ -606,8 +595,8 @@ def query_to_args(rpq, query):
     result_args = []
     result_kwargs = {}
     results = rpq.uns_query(", ".join(query))
+    log.debug(results)
     for result in results:
-        log.debug(result)
         for var, val in result.items():
             if isinstance(val, list):
                 log.debug(f'{var} is list: {val}')

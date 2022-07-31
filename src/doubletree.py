@@ -33,15 +33,12 @@ class Header(ur.Columns):
                   self.resource_widget]
         super().__init__(left + center + right)
 
-
     def select_resource(self, instance_key):
         self._selected_resource = self.resource_print_q.copy(instance_key)
         self.resource_widget.set_text(str(self._selected_resource.first_item()))
 
-
     def update_focus_text(self, focus):
         self.window_focus.set_text(f"[{focus}]")
-
 
     @property
     def selected_resource(self):
@@ -54,7 +51,6 @@ class ClassView(ur.TreeListBox):
         first_node = RPQ_Node(rpquery, rpquery.keys()[0], None)
         super().__init__(ur.TreeWalker(first_node))
         self.window = window
-
 
     def keypress(self, size, key):
         if key == "enter":
@@ -74,7 +70,6 @@ class InstanceView(ur.Pile):
         self.rpquery = None
         self.searching = False
         super().__init__([("pack", self.views), self.tree])
-
 
     def keypress(self, size, key):
         if self.searching:
@@ -118,7 +113,6 @@ class InstanceView(ur.Pile):
         self.searching = False
         self.contents = self.contents[:-1]
 
-
     def new_tree(self, parent=None, query=None):
         """set self.rpquery and load its tree in the view"""
         if query is None:
@@ -132,7 +126,6 @@ class InstanceView(ur.Pile):
             self.tree.body = SearchableTreeWalker(first_node)
         else:
             log.warning(self.rpquery)
-
 
     def load_instances(self, sel_class):
         """called when a new class is selected"""
@@ -152,14 +145,12 @@ class ViewList(ExpandingList):
         self.frame = frame
         self.load_views(root_class)
 
-
     def keypress(self, size, key):
         if key == "enter":
             self.load_summary()
             self.frame.load_view()
         elif (res := super().keypress(size, key)):
             return res
-
 
     def load_views(self, leaf_class):
         classes = all_classes(self.frame.window.rpq, leaf_class)
@@ -178,12 +169,8 @@ class InstanceOps(ur.Pile):
         self.body_container = ur.WidgetPlaceholder(ur.SolidFill("."))
         super().__init__([("pack", self.window_menu), self.body_container])
 
-
     def load_instance(self, instance_key):
-        """Called when a new class is selected.
-
-
-        """
+        """Called when a new class is selected. """
         if not instance_key:
             return
         # List of selected class and all its superclasses
@@ -201,15 +188,12 @@ class InstanceOps(ur.Pile):
         # Load the currently selected (default) EditWindow subclass
         self._load_instance(instance_key)
 
-
     def _load_instance(self, instance_key):
         self.body_container.original_widget = self._load_selected()
         log.debug(self.body_container.original_widget.load_instance(instance_key))
 
-
     def load_selected(self):
         self._load_instance(self.window.frames["HEAD"].selected_resource)
-
 
     def _load_selected(self):
         return self.window_menu.selected_widget()(self.window.rpq,
@@ -221,16 +205,13 @@ class OperationList(ExpandingList):
         super().__init__()
         self.select_function = select_function
 
-
     def load_views(self, view_dict):
         self.view_dict = view_dict
         self.load_list(view_dict.keys())
 
-
     def selected_widget(self):
         log.debug(self.selected())
         return self.view_dict[self.selected()]
-
 
     def keypress(self, size, key):
         if key == "enter":
@@ -264,7 +245,6 @@ class Window(ur.Frame):
         pile = ur.Pile([top_frame, ("weight", 2, bottom_frame)])
         super().__init__(pile, header=header)
 
-
     def keypress(self, size, key):
         if key in ['esc', 'q', 'Q']: raise ur.ExitMainLoop()
         if (key := super().keypress(size, key)):
@@ -275,7 +255,6 @@ class Window(ur.Frame):
             else:
                 log.info(f'size:{size}, key:{key_list}')
         self.update_focused()
-
 
     def focus_frame(self, direction):
         if direction == "down":
@@ -291,18 +270,15 @@ class Window(ur.Frame):
             if self.body.focus.focus_position == 0:
                 self.body.focus.focus_position = 1
 
-
     def update_focused(self):
         for name, window in self.frames.items():
             if window is self.body.focus.focus:
                 self.frames["HEAD"].update_focus_text(name)
 
-
     def load_instances(self, sel_class):
         self.frames["HEAD"].select_resource(sel_class)
         self.frames["BROWSE"].load_instances(sel_class)
         self.frames["EDIT"].load_instance(sel_class)
-
 
     def load_relations(self, sel_instance=None, reload_instances=False):
         if sel_instance:
@@ -312,7 +288,6 @@ class Window(ur.Frame):
         self.frames["EDIT"].load_instance(sel_instance)
         if reload_instances:
             self.frames["BROWSE"].load_view()
-
 
     def format_track(self, dictlike):
         if (path := dictlike.get('file')):
@@ -333,7 +308,6 @@ class Window(ur.Frame):
             'album': dictlike.get('album', ""),
             'year': dictlike.get('date', "")
         }
-
 
     def update_dynamic(self, main_loop, *args):
         self.frames["OPERATE"].reload_screen()
