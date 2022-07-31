@@ -111,12 +111,19 @@ class RPQ_TreeNode(ur.TreeNode):
 
 class RPQ_ParentNode(RPQ_TreeNode, ur.ParentNode):
     def load_child_keys(self):
-        return self.parent_query.child_query(self.get_key()).keys()
+        keys = self.parent_query.child_query(self.get_key()).keys()
+        self._child_keys = keys
+        return keys
 
 
     def load_child_node(self, key):
-        return RPQ_Node(self.parent_query.child_query(self.get_key()),
+        #log.debug(self.parent_query)
+        #log.debug(self.get_key())
+        #log.debug(key)
+        node = RPQ_Node(self.parent_query.child_query(self.get_key()),
                         key, self)
+        self._children[key] = node
+        return node
 
 
 def RPQ_Node(parent_query, key, parent):
@@ -147,3 +154,63 @@ def EditWindows(root=None):
         return {subcls.name: subcls for subcls in EditWindow.__subclasses__()
                 if str(subcls.root) == str(root)}
     return {subcls.name: subcls for subcls in EditWindow.__subclasses__()}
+
+
+class SearchableTreeWalker(ur.TreeWalker):
+    def __init__(self, first_node):
+        """
+        NOT GREAT search. in particualar there's an issue using the search field in this
+        naive recursive form. if theres a repeated string value, we stop recursing.
+        possible fixup would be to store a list of (node, searched) tuples as the search_field
+        values.
+        """
+        super().__init__(first_node)
+        self.search_field = {}
+        if isinstance(first_node, RPQ_TreeNode):
+            node = first_node
+            while node:
+                self.search_field[node.get_value().string.lower()] = (node, False)
+                node = node.next_sibling()
+
+    def find(self, match_string):
+        rec_search = []
+        match_string = match_string.lower()
+        for string, (node, searched) in self.search_field.items():
+            if match_string in string:
+                return node
+            elif not searched:
+                rec_search.append(string)
+        for string in rec_search:
+            if (result := self._rec_find(string, match_string)):
+                return result
+
+    def _rec_find(self, node_string, match_string):
+        #log.debug(self.search_field)
+        node, _ = self.search_field[node_string]
+        new_parents = []
+        if isinstance(node, RPQ_ParentNode):
+            match_node = None
+            #log.debug(list(node.get_child_keys()))
+            for key in node.get_child_keys():
+                #log.debug(key)
+                child_node = node.get_child_node(key)
+                new_string = child_node.get_value().string.lower()
+                #log.debug(new_string)
+                if not (item := self.search_field.get(new_string)):
+                    self.search_field[new_string] = (child_node, False)
+                    if isinstance(child_node, RPQ_ParentNode):
+                        new_parents.append(new_string)
+                if match_string in new_string:
+                    match_node = child_node
+            if match_node:
+                return match_node
+        self.search_field[node_string] = (node, True)
+        for parent_string in new_parents:
+            #log.info(parent_string)
+            if (match_node := self._rec_find(parent_string, match_string)):
+                return match_node
+
+    def match_select(self, string):
+        if (key := self.find(string)):
+            log.debug(key)
+            self.set_focus(key)

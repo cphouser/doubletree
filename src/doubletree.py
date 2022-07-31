@@ -11,7 +11,7 @@ import urwid as ur
 from widgets.mpd_player import MpdPlayer
 from widgets.util import ExpandingList, WidgetStyle
 from widgets.edit import RelatedTerms
-from widgets.rpq import RPQ_Node, RPQ_ListElem, EditWindows
+from widgets.rpq import RPQ_Node, RPQ_ListElem, EditWindows, SearchableTreeWalker
 
 from util import mpd
 from util.log import LogFormatter
@@ -67,15 +67,27 @@ class ClassView(ur.TreeListBox):
 class InstanceView(ur.Pile):
     def __init__(self, window):
         self.window = window
-        self.tree = ur.TreeListBox(ur.TreeWalker(ur.TreeNode(None, key="")))
+        self.tree = ur.TreeListBox(SearchableTreeWalker(ur.TreeNode(None, key="")))
         self.views = ViewList(self)
 
         self.i_class = None
         self.rpquery = None
+        self.searching = False
         super().__init__([("pack", self.views), self.tree])
 
 
     def keypress(self, size, key):
+        if self.searching:
+            self.focus_position = len(self.contents) - 1
+        if key == "/" and not self.searching:
+            self.start_search()
+            return
+        elif key == "tab" and self.searching:
+            self.try_search()
+            return
+        elif key == "enter" and self.searching:
+            self.end_search()
+            return
         if self.focus == self.tree and self.tree.focus.get_node().get_value():
             focused = self.tree.focus.get_node()
             sel_type = focused.get_value().type
@@ -91,8 +103,24 @@ class InstanceView(ur.Pile):
         if (res := super().keypress(size, key)):
             return res
 
+    def start_search(self):
+        self.searching = True
+        self.search_bar = ur.Edit("/")
+        self.contents.append((self.search_bar, ur.Pile.options("pack")))
+        self.focus_position = len(self.contents) - 1
+
+    def try_search(self):
+        self.tree.body.match_select(self.search_bar.edit_text)
+        self.focus_position -= 1
+
+    def end_search(self):
+        self.tree.body.match_select(self.search_bar.edit_text)
+        self.searching = False
+        self.contents = self.contents[:-1]
+
 
     def new_tree(self, parent=None, query=None):
+        """set self.rpquery and load its tree in the view"""
         if query is None:
             return
         if parent:
@@ -101,14 +129,15 @@ class InstanceView(ur.Pile):
         if self.rpquery:
             log.debug(str(self.rpquery))
             first_node = RPQ_Node(self.rpquery, self.rpquery.keys()[0], None)
-            self.tree.body = ur.TreeWalker(first_node)
+            self.tree.body = SearchableTreeWalker(first_node)
         else:
             log.warning(self.rpquery)
 
 
     def load_instances(self, sel_class):
-        self.views.load_views(sel_class)
-        self.load_view(sel_class)
+        """called when a new class is selected"""
+        self.views.load_views(sel_class) # load the views for this class
+        self.load_view(sel_class) # load the first view
 
 
     def load_view(self, sel_class=None):
@@ -151,17 +180,25 @@ class InstanceOps(ur.Pile):
 
 
     def load_instance(self, instance_key):
+        """Called when a new class is selected.
+
+
+        """
         if not instance_key:
             return
+        # List of selected class and all its superclasses
         instance_class = self.window.rpq.simple_query(
                 f"rdf('{instance_key}', '{RDF.type}', X)", unique=True)
         classes = all_classes(self.window.rpq, instance_class)
         log.debug(classes)
+        # Dict {__name__: class} of EditWindow subclasses with a .root attribute matching the list of classes
         edit_windows = {}
         for superclass in classes:
             edit_windows.update(EditWindows(superclass))
+        # Load EditWindow subclasses into the window_menu
         self.window_menu.load_views(edit_windows)
         log.debug(edit_windows)
+        # Load the currently selected (default) EditWindow subclass
         self._load_instance(instance_key)
 
 

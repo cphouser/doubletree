@@ -7,8 +7,8 @@ import logging as log
 import urwid as ur
 
 from util.table import balance_columns
-#from util.palette import WidgetStyle
 
+#from util.palette import WidgetStyle
 
 class ExpandingList(ur.WidgetWrap):
     def __init__(self):
@@ -26,15 +26,18 @@ class ExpandingList(ur.WidgetWrap):
     def keypress(self, size, key):
         if key == "tab":
             if self._w == self.summary:
+                # Expand the list if it's collapsed
                 height = min(3, len(self.listbox.body))
                 self._w = ur.BoxAdapter(self.listbox, height)
             else:
+                # Load the highlighted option if it's expanded
                 self.load_summary()
         elif (res := super().keypress(size, key)):
             return res
 
 
     def load_list(self, str_list):
+        """Fill the widget with a new list of options, Collapse the list if expanded"""
         self.listbox.body = ur.SimpleFocusListWalker(
             [ur.Columns([("pack", ur.AttrMap(ur.SelectableIcon('- '),
                                              "listicon", "listitem_focus")),
@@ -44,10 +47,12 @@ class ExpandingList(ur.WidgetWrap):
 
 
     def selected(self):
+        """Return the selected option's text value"""
         return self.listbox.focus[1].get_text()[0]
 
 
     def load_summary(self):
+        """Highlight the selected option, collapse the list if expanded"""
         self.summary.set_text(self.selected())
         self._w = self.summary
 
@@ -76,6 +81,7 @@ class TableList(ur.ListBox):
 
 
     def balance(self, width):
+        """Adjust column widths to widths of their content"""
         width_data = [[] for _ in self.header]
         for row in self.body:
             for col_idx, width_list in enumerate(width_data):
@@ -97,6 +103,7 @@ class TableList(ur.ListBox):
 
 
     def selected(self):
+        """Return the row, column currently selected."""
         if self.focus:
             if self.focus.key == "header":
                 return (None, self.focus.focus.key)
@@ -147,6 +154,13 @@ class TableList(ur.ListBox):
 
 
 class TableItem(ur.WidgetWrap):
+    """A Cell in a TableList
+
+    Attributes:
+        key: The value to return if selected
+        text: The value printed in the table
+        sort: The value for sorting within the table
+    """
     def __init__(self, key, text=None, sort=None, selectable=True,
                  align="left", wrap="ellipsis"):
         self.key = key
@@ -163,6 +177,7 @@ class TableItem(ur.WidgetWrap):
 
 
 class SelectableText(ur.SelectableIcon):
+    """A wrapper for creating selectable text widgets with a hidden cursor position"""
     def __init__(self, text, *args, **kwargs):
         super(ur.SelectableIcon, self).__init__(text, *args, **kwargs)
         if isinstance(text, str):
@@ -199,26 +214,6 @@ class TableRow(ur.Columns):
     def __getitem__(self, idx):
         return self.contents[idx][0]
 
-WHITE = '#ffffff'
-LGRAY = '#c0c0c0'
-DGRAY = '#808080'
-BLACK = '#000000'
-
-ORNG1 = '#ffdfaf'
-ORNG2 = '#ffaf5f'
-ORNG3 = '#ff8700'
-ORNG4 = '#d75f00'
-
-CYAN1 = '#dfffff'
-CYAN2 = '#afffff'
-CYAN3 = '#00d7d7'
-CYAN4 = '#008787'
-
-LPRPL = '#d700ff'
-DPRPL = '#870087'
-
-LPINK = '#ff87af'
-DPINK = '#ff005f'
 
 def bd(style):
     return style + ', bold'
@@ -226,6 +221,27 @@ def ul(style):
     return style + ', underline'
 
 class WidgetStyle(ur.AttrMap):
+    WHITE = '#ffffff'
+    LGRAY = '#c0c0c0'
+    DGRAY = '#808080'
+    BLACK = '#000000'
+
+    ORNG1 = '#ffdfaf'
+    ORNG2 = '#ffaf5f'
+    ORNG3 = '#ff8700'
+    ORNG4 = '#d75f00'
+
+    CYAN1 = '#dfffff'
+    CYAN2 = '#afffff'
+    CYAN3 = '#00d7d7'
+    CYAN4 = '#008787'
+
+    LPRPL = '#d700ff'
+    DPRPL = '#870087'
+
+    LPINK = '#ff87af'
+    DPINK = '#ff005f'
+
     palette = [
         ('listicon',        'yellow' , 'black', '',             ORNG3, BLACK),
         ('listitem',        'yellow', 'black', '',              CYAN4, BLACK),

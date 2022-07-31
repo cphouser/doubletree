@@ -17,7 +17,11 @@ from util.rdf.namespaces import XCAT, B3
 
 @dataclass
 class ParentVar:
+    # string value in the query (variable name)
     variable: str
+    # If True: resource is the variable value
+    # If False: resource is not declared to have a particular type
+    # If str: resource is the type rdf_type
     rdf_type: Union[str, bool] = True
     resource: Optional[str] = None
 
@@ -255,9 +259,11 @@ class RPQuery:
 
 
     def child_query(self, child):
+        #log.debug(self._children)
         if child in self._children:
             return self._children[child]
         if child not in self._results:
+            log.debug(self._results)
             log.debug(self.parent)
             log.debug(child)
             raise KeyError("Should i handle this?")

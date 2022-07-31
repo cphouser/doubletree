@@ -7,6 +7,7 @@ from blake3 import blake3
 
 
 def file_hash(file_path, chunksize=65536, interactive=False):
+    """Return the hash of a given file, given its path"""
     hasher = blake3()
     chunk = 0
     with open(file_path, "rb") as f:

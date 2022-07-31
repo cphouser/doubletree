@@ -1,0 +1,83 @@
+#+TITLE: Files
+
+
+  /home/xeroxcat/projects/doubletree/src:
+** mpd_monitor
+*** mpd_monitor.py
+Queries the MPD Daemon about whether it's playing.
+If a song is playing:
+- If its a new song since last check, save it as a play
+- If its the same song as last check and the current time is after it would have ended, save it as a play.
+*** mpd_monitor.service
+** schema_render
+*** rdflib_ext.py
+*** render_schema.py
+*** requirements.txt
+** test
+*** pl_load.py
+*** rdf_get_resources.py
+*** rdf_list_test.py
+*** __init__.py
+** util
+*** rdf
+****  b3.py
+Functions for getting the hash values of files
+****  discogs.py
+Mappings of Discogs =GENRES= and =STYLES=
+text-only genre name: (Printed Name, URL)
+text-only genre name: {text-only style name: (Printed Name, URL)}
+***** genre_styles()
+****  namespaces.py
+=ShortURI()= Returns an abbreviated URI ref, using rdflib
+****  pl.py
+Objects for wrapping queries to the prolog store
+****  queries.py
+- ProtoQueries for different application views
+- =instance_ops=:
+  dict mapping node types (by schema URL) to functions that can be called on selected instances of the type
+****  __init__.py
+*** conf_file.py
+=Config= object wrapping =/data/doubletree.conf=
+*** log.py
+logging.LogFormatter class
+*** mpd.py
+=add_to_list(*filepaths, **filepath_dict)=
+*** mutagen.py
+TagData(), used by =widgets.edit.RecordingImport= and =widgets.edit.FindTracklist=
+references =data/mutagen_*.sqlite=
+*** table.py
+Table column resizing
+** widgets
+*** edit.py
+EditWindow subclasses, InstanceOps windows loaded for a particular class instance
+*** mpd_player.py
+MPDPlayer window, loaded by default in the OperationView
+*** rpq.py
+Widgets with Embedded RPQ Queries/Objects, Includes EditWindow definition and EditWindows() for looking up EditWindow subclasses.
+*** util.py
+**** ExpandingList(ur.WidgetWrap)
+Superclass widget for a collapsible selection
+Alternately a =ur.ListBox= and a =ListSummary=
+
+**** TableList(ur.ListBox)
+Table with a header, maintains notion of whether column widths are balanced for their contents.
+A list of =TableRow= s, each a list of =TableItem= s.
+
+Rows and Columns each have =key= attributes for values.
+
+**** WidgetStyle(ur.AttrMap)
+Wraps different custom widgets with style attributes
+
+
+** beets_to_rdf.py
+** clean_db.sh
+** dates.pl
+** dbltree.log
+** doubletree.py
+** generate_config.py
+** init.pl
+** move_paths.py
+** mutagen_data.py
+** update_paths.py
+** whatsgoingon.txt
+** __init__.py

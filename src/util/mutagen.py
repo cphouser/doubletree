@@ -53,7 +53,10 @@ class TagData:
 
     def __init__(self, refind=False, stdout=False):
         self._out = stdout
+
+        # Artist Name: [track paths tagged with the artist]
         self.artist_paths = SqliteDict('../data/mutagen_artists.sqlite')
+        # Release Name: [track paths tagged with the release]
         self.release_paths = SqliteDict('../data/mutagen_releases.sqlite')
         if (not self.release_paths and not self.artist_paths) or refind:
             self.artist_paths.clear()
@@ -135,6 +138,7 @@ class TagData:
 
 
     def match_data(self, artist=None, release=None):
+        """get the set of paths with tags of the given artist and/or release"""
         log.debug((artist, release))
         self._match(artist, release)
         match_data = {}
@@ -144,6 +148,7 @@ class TagData:
 
 
     def match_path(self, path):
+        """get the tag data of the track with the given path"""
         tag_data = {}
         mutagen_data = mutagen.File(path)
         for field in self.TAG_FIELDS:

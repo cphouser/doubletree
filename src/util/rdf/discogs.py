@@ -928,6 +928,14 @@ STYLES = {'blues': {'boogiewoogie': ('Boogie Woogie',
                                     'https://www.discogs.com/style/video+game+music')}}
 
 def genre_styles(genre_list, style_list):
+    """Given a text-list of genres and styles, return
+
+    - A list of genres that match names in the given genre_list
+    - A list of (style, parent genre) tuples that match names in the
+      style_list and remaining entries in the genre_list
+    - A list of the remaining unmatched names
+
+    """
     unmatched_genres = []
     matched_genres = []
     genre_results = []
