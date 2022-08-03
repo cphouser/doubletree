@@ -10,6 +10,8 @@ from pprint import pprint, pformat
 
 import mutagen
 from sqlitedict import SqliteDict
+from fuzzywuzzy import fuzz
+
 from util.conf_file import Config
 
 class TagData:
@@ -53,10 +55,7 @@ class TagData:
 
     def __init__(self, refind=False, stdout=False):
         self._out = stdout
-
-        # Artist Name: [track paths tagged with the artist]
         self.artist_paths = SqliteDict('../data/mutagen_artists.sqlite')
-        # Release Name: [track paths tagged with the release]
         self.release_paths = SqliteDict('../data/mutagen_releases.sqlite')
         if (not self.release_paths and not self.artist_paths) or refind:
             self.artist_paths.clear()
@@ -75,6 +74,8 @@ class TagData:
 
     def _get_tag(self, mutagen_data, tag):
         results = []
+        if not mutagen_data.tags:
+            return None
         for field in self.TAG_FIELDS[tag]:
             try:
                 if field in mutagen_data.tags:
@@ -90,6 +91,7 @@ class TagData:
 
     def _find_tagged(self):
         missing_data = {}
+        print(self.DATA_ROOTS)
         for base_path in self.DATA_ROOTS:
             for dirpath, _, filenames in os.walk(base_path):
                 self._print(" ", datetime.now(), end='\r')
@@ -117,19 +119,53 @@ class TagData:
         self._print('\r\033[K', end="")
 
 
-    def _match(self, artist=None, release=None):
+    def _match(self, artist=None, release=None, best=0):
         matches = set()
         if artist:
             log.debug(self._clean(artist))
-            matched = self.artist_paths.get(self._clean(artist), [])
+            if best:
+                match = self._ratio_match(self.artist_paths,
+                                          self._clean(artist),
+                                          best_num=best)
+            else:
+                matched = self.artist_paths.get(self._clean(artist), [])
             matches = matches.union(set(matched))
-            log.debug((len(matched), "matched"))
         if release:
             log.debug(self._clean(release))
-            matched = self.release_paths.get(self._clean(release), [])
+            if best:
+                matched = self._ratio_match(self.release_paths,
+                                            self._clean(release),
+                                            best_num=best)
+            else:
+                matched = self.release_paths.get(self._clean(release), [])
             matches = matches.union(set(matched))
-            log.debug((len(matched), "matched"))
+        log.debug(f"{len(matches)} matched")
         self.matches = matches
+
+    @staticmethod
+    def _ratio_match(name_dict, name, best_num=0):
+        comparisons = {}
+        for other_name in name_dict.keys():
+            ratio = fuzz.ratio(other_name, name)
+            ratio_list = comparisons.get(ratio, [])
+            ratio_list.append(other_name)
+            comparisons[ratio] = ratio_list
+        sorted_ratios = list(comparisons.keys())
+        sorted_ratios.sort()
+        best_ratio = sorted_ratios.pop()
+        best_list = comparisons[best_ratio]
+        best = best_list[0]
+        best_list = list(reversed(best_list))
+        best_name_paths = []
+        for _ in range(best_num + 1):
+            if not best_list:
+                best_ratio = sorted_ratios.pop()
+                best_list = list(reversed(comparisons[best_ratio]))
+            top = best_list.pop()
+            best_name_paths += name_dict[top]
+            log.debug(f"{best_ratio} {top}")
+        return best_name_paths
+
 
 
     @staticmethod
@@ -137,10 +173,9 @@ class TagData:
         return re.sub('[^\w]', '', string).lower()
 
 
-    def match_data(self, artist=None, release=None):
-        """get the set of paths with tags of the given artist and/or release"""
+    def match_data(self, artist=None, release=None, best=0):
         log.debug((artist, release))
-        self._match(artist, release)
+        self._match(artist, release, best=best)
         match_data = {}
         for match in self.matches:
             match_data[match] = self.match_path(match)
@@ -148,7 +183,6 @@ class TagData:
 
 
     def match_path(self, path):
-        """get the tag data of the track with the given path"""
         tag_data = {}
         mutagen_data = mutagen.File(path)
         for field in self.TAG_FIELDS:

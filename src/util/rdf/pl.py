@@ -616,6 +616,8 @@ def _utf8(var):
         return var
     elif isinstance(var, easy.Atom):
         return str(var)
+    elif isinstance(var, easy.Variable):
+        return None
     if var is None:
         return ""
     else:

@@ -1,10 +1,14 @@
 #!/usr/bin/env python3
 import logging as log
+from dataclasses import dataclass
 from enum import Enum
+from pathlib import Path
 from pprint import pformat
 
 import urwid as ur
 from rdflib.namespace import RDF, RDFS, XSD
+from fuzzywuzzy import fuzz
+import yaml
 
 from util.mutagen import TagData
 from util.rdf.namespaces import XCAT, ShortURI
@@ -167,7 +171,7 @@ audiofile_data = ProtoQuery(
 release_tracks = ProtoQuery(
     'Track',
     f"rdf(Track, '{XCAT.released_on}', Release), "
-    f"xcat_filepath(Track, Path)",
+    f"xcat_maybe_filepath(Track, Path)",
     "{TLabel} {Artist} {Path}",
     parent=ParentVar('Release'),
     q_where=f"xcat_print(Track, TLabel), "
@@ -336,6 +340,37 @@ class RecordingImport(ur.Columns):
         if (res := super().keypress(size, key)):
             return res
 
+@dataclass
+class TrackRow:
+    uri: str = ""
+    number: str = ""
+    tag_release: str = ""
+    tag_title: str = ""
+    title: str = ""
+    artist: str = ""
+    codec: str = ""
+    path: str = ""
+
+    @property
+    def widget_list(self):
+        return [
+            TableItem(self.number or ".", sort=self.track_sort),
+            TableItem(self.tag_release or "."),
+            TableItem(self.tag_title or "."),
+            TableItem(self.uri or None, self.title or "."),
+            TableItem(self.artist or "."),
+            TableItem(self.codec or "???"),
+            TableItem(self.path or "."),
+        ]
+
+    @property
+    def widget_key(self):
+        return self.uri or self.path
+
+    @property
+    def track_sort(self):
+        return FindTracklist.stringint(self.number.rjust(4, "0"))
+
 
 class FindTracklist(EditWindow, ur.WidgetWrap):
     root = XCAT.Release
@@ -346,15 +381,21 @@ class FindTracklist(EditWindow, ur.WidgetWrap):
 
     def __init__(self, rpq, update_resource):
         self.rpq = rpq
-        self.moving = None
-        self.add_mode = False
-        widget = TableList(self.columns)
+        self.best = 0 # how many fuzzy matches to include
+        widget = self._init()
         super().__init__(widget, update_resource)
 
+    def _init(self):
+        self.moving = None
+        self.add_mode = False
+        self.merging = False
+        self.loaded_tracks = {}
+        return TableList(self.columns)
 
     def keypress(self, size, key):
         if not self.add_mode:
             row, col = self._w.selected()
+            #log.debug((row, col, key))
             if col:
                 if key == "enter":
                     if self.moving:
@@ -370,6 +411,7 @@ class FindTracklist(EditWindow, ur.WidgetWrap):
                     return
                 if key == 't':
                     self.add_tracklist()
+                    self.update_resource(self.parent, reload_instances=True)
                     return
                 if key == 'd':
                     self.remove_track(self._w.index(row))
@@ -377,8 +419,82 @@ class FindTracklist(EditWindow, ur.WidgetWrap):
                 if key == 'D':
                     self.remove_tracks(self._w.index(row))
                     return
+                if key == 'b':
+                    self._w = self._init()
+                    self.best += 1
+                    self.load_instance(self.parent, best=self.best)
+                if key == 'p':
+                    self.parse_track_titles()
+                if key == 'm':
+                    if self.merging:
+                        self.apply_merge()
+                        #self._w = self._init()
+                        self.update_resource(self.parent)
+                        #self.load_instance(self.parent, best=self.best)
+                    else:
+                        self.merge_best()
+                        self.merging = True
+                if key == 's':
+                    if (sel_col := self._w.selected_col()):
+                        self._w.sort_by(sel_col)
         if (res := super().keypress(size, key)):
             return res
+
+    def parse_track_titles(self):
+        for key, trackrow in self.loaded_tracks.items():
+            if trackrow.path:
+                trackrow.tag_title = Path(trackrow.path).stem
+                self._w.replace_row(key, trackrow.widget_list)
+
+    def apply_merge(self):
+        self.rpq.rassert(*[
+            f"xcat_apply_recording_path('{t.uri}', {xsd_type(t.path, 'string')}"
+            f", '{t.codec}')"
+            for t in self.loaded_tracks.values() if t.uri and t.path
+        ])
+
+    def merge_best(self):
+        #log.debug(yaml.dump({track.uri: track.path
+        #                     for track in self.loaded_tracks.values()}))
+        no_paths = {
+            key: row.title for key, row in self.loaded_tracks.items()
+            if row.uri and not row.path
+        }
+        no_uris = {
+            key: row.tag_title for key, row in self.loaded_tracks.items()
+            if row.path and not row.uri
+        }
+        # find the best merges
+        fits = {}
+        comparisons = []
+        for key, title in no_paths.items():
+            comparisons += [
+                (key, other_key, fuzz.ratio(title, other_title))
+                for other_key, other_title in no_uris.items()
+            ]
+        comparisons.sort(key=lambda x: x[2])
+        for no_path_key, no_uri_key, ratio in reversed(comparisons):
+            if (not no_paths) or (not no_uris):
+                break
+            log.debug((no_path_key, no_uri_key, ratio))
+            if (no_path_key not in no_paths) or (no_uri_key not in no_uris):
+                continue
+            fits[no_path_key] = no_uri_key
+            del no_paths[no_path_key]
+            del no_uris[no_uri_key]
+
+        # perform merges
+        for no_path_key, no_uri_key in fits.items():
+            no_uri_track = self.loaded_tracks[no_uri_key]
+            no_path_track = self.loaded_tracks[no_path_key]
+            no_path_track.path = no_uri_track.path
+            no_path_track.tag_release = no_uri_track.tag_release
+            no_path_track.tag_title = no_uri_track.tag_title
+            no_path_track.number = no_uri_track.number
+            no_path_track.codec = no_uri_track.codec
+            self._w.replace_row(no_path_key, no_path_track.widget_list)
+            no_uri_index = self._w.index(no_uri_key)
+            self.remove_track(no_uri_index)
 
 
     def move_row(self, row_key):
@@ -399,26 +515,24 @@ class FindTracklist(EditWindow, ur.WidgetWrap):
         else:
             self.moving = row_key
 
-
     def add_tracklist(self):
         tracklist = []
         for row in self._w.body[1:]:
             item = row[3]
-            if item.key:
-                tracklist.append(item.key)
-                log.debug((item.key, item._w.get_text()))
+            if (key := item._original_widget.key):
+                tracklist.append(key)
+                log.debug((key, item._original_widget._w.get_text()))
         res = self.rpq.TrackList(self.parent, tracklist)
         log.debug(res)
 
-
     def remove_track(self, idx):
-        self._w.body.pop(idx)
+        row_key = self._w.body.pop(idx).key
+        del self.loaded_tracks[row_key]
         self._w.balanced = False
-
 
     def remove_tracks(self, idx):
-        self._w.body = self._w.body[:idx]
-        self._w.balanced = False
+        for i in range(len(self._w.body) - 1, idx - 1, -1):
+            self.remove_track(i)
         self._w.set_focus(idx-1)
 
     @staticmethod
@@ -429,43 +543,42 @@ class FindTracklist(EditWindow, ur.WidgetWrap):
             intval += ord(char)
         return intval
 
-
-    def load_instance(self, instance_key):
+    def load_instance(self, instance_key, best=0):
         prop_query = self.rpq.query(release_tracks)
         prop_query.parent.resource = instance_key
         self.parent = instance_key
 
         paths = set()
         for obj, res in prop_query.items():
-            tags = self.tagdata.match_path(res["Path"])
-            track = (tags.get("track") or ["."])[0]
-            widget_list = [TableItem(track,
-                                     sort=self.stringint(track.rjust(4, "0"))),
-                           TableItem((tags.get("release") or ["."])[0]),
-                           TableItem((tags.get("title") or ["."])[0]),
-                           TableItem(obj, res["TLabel"]),
-                           TableItem(res["Artist"]),
-                           TableItem(tags.get("encoding", "???")),
-                           TableItem(res["Path"])]
-            self._w.add_row(res["Path"], widget_list)
+            if (path := res["Path"]) != '.':
+                tags = self.tagdata.match_path(path)
+            else:
+                path = ""
+                tags = {}
+            row = TrackRow(uri=obj,
+                           number=(tags.get("track") or [""])[0],
+                           tag_release=(tags.get("release") or [""])[0],
+                           tag_title=(tags.get("title") or [""])[0],
+                           title=res["TLabel"],
+                           artist=res["Artist"],
+                           codec=tags.get("encoding"),
+                           path=path)
+            self._w.add_row(row.widget_key, row.widget_list)
+            self.loaded_tracks[row.widget_key] = row
             paths.add(res["Path"])
 
         release_lbl = prop_query.first_item()["RLabel"]
-        for path, tags in self.tagdata.match_data(release=release_lbl).items():
+        for path, tags in self.tagdata.match_data(release=release_lbl, best=best).items():
             if path not in paths:
-                track = (tags.get("track") or ["."])[0]
-                widget_list = [TableItem(track,
-                                         sort=self.stringint(track.rjust(4, "0"))),
-                               TableItem((tags.get("release") or ["."])[0]),
-                               TableItem((tags.get("title") or ["."])[0]),
-                               TableItem(None, "."), TableItem("."),
-                               TableItem(tags.get("encoding", "???")),
-                               TableItem(path)]
-                self._w.add_row(path, widget_list)
+                row = TrackRow(number=(tags.get("track") or [""])[0],
+                               tag_release=(tags.get("release") or [""])[0],
+                               tag_title=(tags.get("title") or [""])[0],
+                               codec=tags.get("encoding"),
+                               path=path)
+                self._w.add_row(row.widget_key, row.widget_list)
+                self.loaded_tracks[row.widget_key] = row
 
         self._w.sort_by("#")
         self._w.sort_by("Codec")
-
-
 
 #

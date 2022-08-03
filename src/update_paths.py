@@ -22,7 +22,7 @@ def rec_file_hash(path):
         for subdir in subdirs:
             subdir_path = os.path.join(dirpath, subdir)
             if not (subdir_hash := dirpaths.get(subdir_path)):
-                raise Exception(f"{subdir_path}\n not encountered"
+                raise Exception(f"{subdir_path}\n not encountered "
                                 f"before\n{dirpath}")
             entry_hashes.append(subdir_hash)
 
@@ -63,6 +63,9 @@ if __name__ == "__main__":
                         'output logging level (0-50), 0 prints all output')
     parser.add_argument('--pickle-cache', '-p', action='store_true',
                         help='use a cache of the filedata from the last run')
+    parser.add_argument('--dry-run', '-d', action='store_true',
+                        help='don\'t make any changes to the RDF store. '
+                        '(can rewrite the cache file!)')
     args = parser.parse_args()
 
     log = logging.getLogger('update_paths')
@@ -74,6 +77,7 @@ if __name__ == "__main__":
     log.addHandler(log_handler)
     log.info(f"\n\t\tRDF Path Updater {datetime.now()}")
 
+    # get dict of {path: dirhash} for each path in the tree(s)
     cache_file = '../data/cache/updated_paths.pickle'
     if not args.pickle_cache:
         dirpaths = {}
@@ -88,6 +92,7 @@ if __name__ == "__main__":
 
     rpq = RPQ('init.pl', write_mode=True)
 
+    # get dict of (dirhash: [paths]) for each hash
     dirhashes = {}
     for path, pathhash in dirpaths.items():
         pathlist = dirhashes.get(pathhash, [])
@@ -98,7 +103,7 @@ if __name__ == "__main__":
         assertions = []
         if len(paths) > 1:
             log.debug(f"duplicate: {b3hash} (" + str(os.stat(paths[0]).st_size)
-                      + ")\n" + pformat(paths, width=170))
+                      + " bytes)\n" + pformat(paths, width=170))
         file_uri = B3[b3hash]
         if (old_paths := rpq.uns_query(
                 f"rdf('{file_uri}', '{XCAT.path}', Path^^'{XSD.string}')"
@@ -117,21 +122,23 @@ if __name__ == "__main__":
                 assertions.append(f"rdf_assert('{file_uri}', '{XCAT.path}'"
                                   f", {xsd_type(path, 'string')})")
             if old_paths or new_paths:
-                log.debug("old: " + pformat(old_paths, width=150))
-                log.debug("new: " + pformat(new_paths, width=150))
+                log.debug(f"\n\told: {pformat(old_paths, width=170)}"
+                          f"\n\tnew: {pformat(new_paths, width=170)}")
         else:
             log.debug(f"new direntry: {file_uri}\n{pformat(paths, width=160)}")
             if (child_hashes := child_entries(dirpaths, paths[0])):
                 child_uris = [B3[child_hash] for child_hash in child_hashes]
                 log.debug("it is a directory")
-                [entries_to_dir(rpq, b3hash, path, child_uris)
-                 for path in paths]
+                if not args.dry_run:
+                    [entries_to_dir(rpq, b3hash, path, child_uris)
+                     for path in paths]
             else:
                 log.debug("it is a file")
-                [nometa_file_node(rpq, {'path': path, '_hash': b3hash})
-                 for path in paths]
+                if not args.dry_run:
+                    [nometa_file_node(rpq, {'path': path, '_hash': b3hash})
+                     for path in paths]
 
-        if assertions:
+        if assertions and not args.dry_run:
             rpq.uns_query(", ".join(assertions))
 
     # for uris in pl store if not in dirhashes: remove uri
@@ -145,8 +152,11 @@ if __name__ == "__main__":
         if file_hash in dirhashes:
             continue
         else:
-            rpq.uns_query(f"xcat_retract('{file_uri}')")
-            log.info(f"{file_uri} has been removed")
+            if args.dry_run:
+                log.info(f"\n\tremove: {file_uri}")
+            else:
+                rpq.uns_query(f"xcat_retract('{file_uri}')")
+                log.info(f"{file_uri} has been removed")
 
 #            # for path in old_paths:
 #            #   if path in dirpaths and dirpaths[path]

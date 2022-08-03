@@ -28,6 +28,11 @@ xcat_filepath(Resource, Filepath) :-
     rdf(Resource, xcat:file, File),
     rdf(File, xcat:path, Filepath^^xsd:string).
 
+xcat_maybe_filepath(Resource, Filepath) :-
+    xcat_filepath(Resource, Filepath)
+    ;            \+   rdf(Resource, xcat:file, _).
+
+
 xcat_tracklist(Release, RecordingList) :-% FileList) :-
     rdf(Release, rdf:type, xcat:'Release'),
     rdf(Release, xcat:tracklist, Tracklist),
@@ -36,6 +41,27 @@ xcat_tracklist(Release, RecordingList) :-% FileList) :-
 xcat_tracklist_filepaths(Release, FileList) :-
     xcat_tracklist(Release, RecordingList),
     maplist(xcat_filepath, RecordingList, FileList).
+
+xcat_missing_filepath(Recording) :-
+    rdf(Recording, rdf:type, xcat:'Recording'),
+    \+ rdf(Recording, xcat:file, _File).
+
+xcat_incomplete_tracklist(Release, Tracklist) :-
+    xcat_tracklist(Release, RecordingList),
+    rdf(Release, xcat:tracklist, Tracklist),
+    maplist(xcat_missing_filepath, RecordingList).
+
+xcat_apply_recording_path(Recording, Filepath, Encoding) :-
+    rdf(Recording, xcat:file, File),
+    rdf(File, xcat:path, Filepath),
+    rdf(File, xcat:encoding, Encoding^^xsd:string), !.
+xcat_apply_recording_path(Recording, Filepath, Encoding) :-
+    xcat_missing_filepath(Recording),
+    rdf(File, xcat:path, Filepath),
+    rdf_update(File, rdf:type, xcat:'File', object(xcat:'AudioFile')),
+    rdf_assert(File, xcat:encoding, Encoding^^xsd:string),
+    rdf_assert(File, xcat:recording, Recording),
+    rdf_assert(Recording, xcat:file, File).
 
 xcat_type(Resource, Class) :-
     Resource = _^^Class, !.

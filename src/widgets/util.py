@@ -67,18 +67,19 @@ class TableList(ur.ListBox):
         self.balanced = True
         super().__init__(ur.SimpleFocusListWalker([self.header]))
 
-
     def render(self, size, focus=False):
         if not self.balanced:
             cols, _ = size
             self.balance(cols)
         return super().render(size, focus)
 
-
     def add_row(self, key, contents):
         self.body.append(TableRow(key, contents))
         self.balanced = False
 
+    def replace_row(self, key, contents):
+        self.body[self.index(key)] = TableRow(key, contents)
+        self.balanced = False
 
     def balance(self, width):
         """Adjust column widths to widths of their content"""
@@ -116,7 +117,7 @@ class TableList(ur.ListBox):
         """return header key of currently selected column"""
         if self.focus:
             focus_idx = self.focus.find(self.focus.focus._original_widget.key)
-            return self.header[focus_idx].key
+            return self.header[focus_idx]._original_widget.key
 
 
     def __getitem__(self, key):

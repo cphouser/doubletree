@@ -8,6 +8,7 @@ coloredlogs==15.0.1
 confuse==1.4.0
 discogs-client==2.3.0
 frozendict==2.0.2
+fuzzywuzzy==0.18.0
 humanfriendly==9.2
 idna==2.10
 indexed==1.2.1
@@ -21,6 +22,7 @@ oauthlib==3.1.1
 pycountry==20.7.3
 pyparsing==2.4.7
 pyswip @ git+https://github.com/yuce/pyswip@104132e8f8376dbb1c46952d414aa138ee58f6e5
+python-Levenshtein==0.12.2
 python-mpd2==3.0.4
 python-musicpd==0.7.0
 PyYAML==5.4.1
