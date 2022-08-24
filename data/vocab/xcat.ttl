@@ -78,6 +78,11 @@ xcat:Named
     rdfs:label "Named" ;
     rdfs:subClassOf rdfs:Resource .
 
+xcat:Note
+    a rdfs:Class ;
+    rdfs:label "Note" ;
+    rdfs:subClassOf xcat:Work .
+
 xcat:Project
     a rdfs:Class ;
     rdfs:label "Project" ;
