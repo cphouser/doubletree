@@ -144,19 +144,21 @@ if __name__ == "__main__":
     # for uris in pl store if not in dirhashes: remove uri
     file_uris = rpq.uns_query(
         f"rdfs_individual_of(File_URI, '{XCAT.DirEntry}'), "
-        f"rdf(File_URI, '{XCAT.hash}', EntryHash^^'{XSD.string}')"
+        f"rdf(File_URI, '{XCAT.hash}', EntryHash^^'{XSD.string}'), "
+        f"rdf(File_URI, '{XCAT.path}', EntryPath^^'{XSD.string}')"
     )
     for res in file_uris:
         file_hash = _utf8(res['EntryHash'])
         file_uri = _utf8(res['File_URI'])
+        file_path = _utf8(res['EntryPath'])
         if file_hash in dirhashes:
             continue
         else:
             if args.dry_run:
-                log.info(f"\n\tremove: {file_uri}")
+                log.info(f"\n\tremoved: {file_path}")
             else:
                 rpq.uns_query(f"xcat_retract('{file_uri}')")
-                log.info(f"{file_uri} has been removed")
+                log.info(f"{file_uri} ({file_path}) has been removed")
 
 #            # for path in old_paths:
 #            #   if path in dirpaths and dirpaths[path]

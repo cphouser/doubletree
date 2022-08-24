@@ -10,7 +10,7 @@ from rdflib.namespace import RDF, RDFS, XSD
 from fuzzywuzzy import fuzz
 import yaml
 
-from util.mutagen import TagData
+from util.mutagen_tags import TagData
 from util.rdf.namespaces import XCAT, ShortURI
 from util.rdf.pl import xsd_type, escape_string, ParentVar, ChildVar, ProtoQuery
 from util.rdf.queries import (printed_resource, class_instances, within_date,
@@ -500,16 +500,19 @@ class FindTracklist(EditWindow, ur.WidgetWrap):
     def move_row(self, row_key):
         if self.moving:
             # put row_widget after row_key
+            log.debug(f"moving {self.moving} to {row_key}")
             if row_key:
-                new_sortval = self._w[row_key][0].sort + 1
+                new_sortval = self._w[row_key][0]._original_widget.sort + 1
             else:
-                new_sortval = self._w.body[1][0].sort
+                new_sortval = self._w.body[1][0]._original_widget.sort
             move_start = self._w.index(row_key) + 1
             move_sortval = new_sortval + 1
             for row in self._w.body[move_start:]:
-                row[0].sort = max(row[0].sort, move_sortval)
-                move_sortval = row[0].sort + 1
-            self._w[self.moving][0].sort = new_sortval
+                row[0]._original_widget.sort = max(
+                    row[0]._original_widget.sort, move_sortval
+                )
+                move_sortval = row[0]._original_widget.sort + 1
+            self._w[self.moving][0]._original_widget.sort = new_sortval
             self._w.sort_by("#")
             self.moving = None
         else:
@@ -581,4 +584,37 @@ class FindTracklist(EditWindow, ur.WidgetWrap):
         self._w.sort_by("#")
         self._w.sort_by("Codec")
 
-#
+
+class EditProperties(EditWindow, ur.WidgetWrap):
+    """Subject and object relations to other resources.
+
+    Related resources can be globally selected.
+    """
+    root = RDFS.Resource
+    name = "Edit Resource Properties"
+
+    def __init__(self, rpq, update_resource):
+        self.has_props = ur.ListBox(ur.SimpleFocusListWalker([]))
+        self.is_props = ur.ListBox(ur.SimpleFocusListWalker([]))
+        self.prop_query = rpq.query(instance_properties)
+        self.rev_prop_query = rpq.query(instance_is_property)
+        super().__init__(ur.Columns([self.is_props, self.has_props]),
+                         update_resource)
+
+
+    def keypress(self, size, key):
+        if key == "enter":
+            if self._w.focus.focus:
+                self.update_resource(self._w.focus.focus.elem)
+        elif (res := super().keypress(size, key)):
+            return res
+
+
+    def load_instance(self, instance_key):
+        prop_query = self.prop_query.copy(instance_key)
+        rev_prop_query = self.rev_prop_query.copy(instance_key)
+        subj_of = [RPQ_ListElem(obj, res, reverse=True)
+                   for obj, res in prop_query.items()]
+        obj_of = [RPQ_ListElem(sbj, res) for sbj, res in rev_prop_query.items()]
+        self.has_props.body = ur.SimpleFocusListWalker(subj_of)
+        self.is_props.body = ur.SimpleFocusListWalker(obj_of)
